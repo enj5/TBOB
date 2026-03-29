@@ -32,3 +32,8 @@
   - Modification (procédure)
   - Affichage (procédure)
   - Suppression (procédure) : chercher comment gérer ça
+  
+
+### Lecture au clavier des valeurs entrées par l'user
+
+- Améliorer le code, pour imposer la saisie correspondant au type souhaité

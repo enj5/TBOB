@@ -93,103 +93,98 @@ void modif(Room* R, int id){
 
     //Salles modifiables par l'user
 
-    bool running = true;
-    char choice, tmp, ME, touche;
+    
+    char choice, keep, tmp, ME, touche;
     int i, j, X, Y, nextX, nextY;
+    do
+    {
+        bool running = true;
+        //Instructions de modifications
+        printf("Modifications possibles : \n");
+        printf("Pour ajouter, appuyer : G, R, S ou H\n");
+        printf("Pour supprimer, appuyer : E\n\n");
 
-    printf("Modifications possibles : \n");
-    printf("Pour ajouter, appuyer : G, R, S ou H\n");
-    printf("Pour supprimer, appuyer : E\n\n");
-
-    printf("Un caractere 'M' ou 'E' va apparaitre dans la room,\n");
-    printf("deplacer le a l'aide des directions indiquees,\n");
-    printf("appuyer sur entrer apprès avoir positionne\n");
-    printf("le curseur au bon endroit.\n\n");
-    do{
-        printf("Votre choix (G, R, S, H ou E): ");
-        scanf(" %c", &choice);  
-    }while(choice != 'G' && choice != 'R' && choice != 'S' && choice != 'H' && choice != 'E');
-
-    
-
-    if(choice == 'E'){
-        ME = 'E';
-    }
-    else
-        ME = 'M';
-
-    /*
-    for(i= 1; i < R->height-1 ; i++){
-        for(j = 1; j < R->width-1; j++){
-            if(R->grid[i][j] == ' '){
-                R->grid[i][j] = ME;
-                //X = i; Y = j;
-                break;
-            }
-        }
-        break;
-    }*/
-    //R->grid[R->height/2][R->width/2] = ME;
-
-    X = R->width/2;
-    Y = R->height/2; 
-    tmp = R->grid[Y][X];
-    
-
-    while (running) {
+        printf("Un caractere 'M' ou 'E' va apparaitre dans la room,\n");
+        printf("deplacer le a l'aide des directions indiquees,\n");
+        printf("appuyer sur entrer apprès avoir positionne\n");
+        printf("le curseur au bon endroit.\n\n");
+        do{
+            printf("Votre choix (G, R, S, H ou E): ");
+            scanf(" %c", &choice);  
+        }while(choice != 'G' && choice != 'R' && choice != 'S' && choice != 'H' && choice != 'E');
 
         
-        R->grid[Y][X] = ME;
 
-        nextX = X;
-        nextY = Y;
-
-        printf("\n");
-        show(*R);
-        
-        
-        printf("\n");
-        printf("\n");
-        printf("Deplacements [Gauche (Q); Droite (D); Haut (Z); Bas (S)] | Fin (X): ");
-        scanf(" %c", &touche); 
-        //int touche = getch();
-        if(touche != 'X'){
-            if (touche == 'Z'){ 
-                nextY--;
-            }
-            if (touche == 'S') 
-                nextY++;
-            if (touche == 'Q') 
-                nextX--;
-            if (touche == 'D') 
-                nextX++;
-        
-        
-        // Collision : on ne bouge que si la case n'est pas un Mur ou un Rocher
-            if (R->grid[nextY][nextX] != 'W' && R->grid[nextY][nextX] != 'D') {
-                R->grid[Y][X] = tmp;
-                X = nextX;
-                Y = nextY;
-                tmp = R->grid[Y][X];
-                //R->grid[Y][X] = ' ';
-            }
+        if(choice == 'E'){
+            ME = 'E';
         }
         else
-            {
-                if(choice == 'E')
-                    R->grid[Y][X] = ' ';
-                else
-                    R->grid[Y][X] = choice;
-                running = false;
-            }
-        
-    }
-    show(*R);
+            ME = 'M';
 
+        X = R->width/2;
+        Y = R->height/2; 
+        tmp = R->grid[Y][X];
+        
+
+        while (running) {
+            R->grid[Y][X] = ME;
+
+            nextX = X;
+            nextY = Y;
+
+            system("cls");
+            printf("\n");
+            show(*R);
+            
+            
+            printf("\n");
+            printf("\n");
+            printf("Deplacements [Gauche (Q); Droite (D); Haut (Z); Bas (S)] | Fin (X): ");
+            scanf(" %c", &touche); 
+            //int touche = getch();
+            if(touche != 'X'){
+                if (touche == 'Z'){ 
+                    nextY--;
+                }
+                if (touche == 'S') 
+                    nextY++;
+                if (touche == 'Q') 
+                    nextX--;
+                if (touche == 'D') 
+                    nextX++;
+            
+            
+            // Collision : on ne bouge que si la case n'est pas un Mur ou un Rocher
+                if (R->grid[nextY][nextX] != 'W' && R->grid[nextY][nextX] != 'D') {
+                    R->grid[Y][X] = tmp;
+                    X = nextX;
+                    Y = nextY;
+                    tmp = R->grid[Y][X];
+                    //R->grid[Y][X] = ' ';
+                }
+            }
+            else
+                {
+                    if(choice == 'E')
+                        R->grid[Y][X] = ' ';
+                    else
+                        R->grid[Y][X] = choice;
+                    running = false;
+                }
+            
+        }
+        system("cls");
+        show(*R);
+        do
+        {
+            printf("\nContinuer les modifications? (o/n) : ");
+            scanf(" %c", &keep);
+        } while (keep != 'o' && keep != 'n');
+    } while (keep == 'o');
 }
 
 
-//Delete is In progress... ça ne marche pas encore!
+//Delete is In progress... ça ne marche pas encore!   SI!!! à tester
 
 void DelInFile(int id, int nS){
     
@@ -209,18 +204,21 @@ void DelInFile(int id, int nS){
         fclose(fich);
     }
     //REECRITURE
-    FILE* f = fopen("salles.rtbob", "w+");
-    if(f != NULL){
-        fprintf(f, "{%d}\n", nS-1);
+    fich = fopen("salles.rtbob", "w+");
+    if(fich != NULL){
+        fprintf(fich, "{%d}\n", nS-1);
         for(i = 0; i < id-1; i++){    
-            WriteInFile(&tab_Room[i], f);
+            WriteInFile(&tab_Room[i], fich);
         }
         for(i = id; i < nS; i++){
             tab_Room[i].id--;     
-            WriteInFile(&tab_Room[i], f);
+            WriteInFile(&tab_Room[i], fich);
         }
-        fclose(f);
+        fclose(fich);
     }
+
+    for(i = 0; i < nS; i++)
+        freeR(&tab_Room[i]);
 
     
 
@@ -229,7 +227,7 @@ void DelInFile(int id, int nS){
 
 void show(Room R){
     
-    system("cls");
+    //system("cls");
     int i, j;
     for(i = 0; i < R.height; i += 1){
         for(j = 0; j < R.width; j += 1){
