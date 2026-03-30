@@ -74,16 +74,15 @@ void creer(Room *R, int n, int m){
 
 
 void modif(char** s, int n, int m){
-
-    
-
+    (void)s;
+    (void)n;
+    (void)m;
 }
 
 
 void suppr(char** s){
-    
+    (void)s;
 }
-
 
 void show(Room *R){
     

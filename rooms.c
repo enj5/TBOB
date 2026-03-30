@@ -310,6 +310,9 @@ static void create_item_room(Room *room, int id, char item_code) {
 static void add_monsters_to_room(Room *room, int count,
                                  const Entity *monsters, size_t monster_count,
                                  int floor_num) {
+    (void) monsters;
+    (void) floor_num;
+
     if (monster_count == 0 || count == 0)
         return;
 
@@ -340,8 +343,14 @@ static void add_monsters_to_room(Room *room, int count,
             bool is_champion = rand() % 100 < 10;
             
             // Mark position with character indicating monster type and champion status
-            // C for Champion, M for normal Monster
-            room->grid[y][x] = is_champion ? 'C' : 'M';
+            // C or M for type1, c or m for type2
+            char marker;
+            if (type == type1)
+                marker = is_champion ? 'C' : 'M';
+            else
+                marker = is_champion ? 'c' : 'm';
+
+            room->grid[y][x] = marker;
             
             // In a real implementation, you'd store the actual monster entity data
             // For now, we're just marking the position
