@@ -113,8 +113,6 @@ void modif(Room* R, int id){
             scanf(" %c", &choice);  
         }while(choice != 'G' && choice != 'R' && choice != 'S' && choice != 'H' && choice != 'E');
 
-        
-
         if(choice == 'E'){
             ME = 'E';
         }

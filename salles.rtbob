@@ -1,4 +1,4 @@
-{9}
+{10}
 [9|15]1
 W W W W W W W D W W W W W W W 
 W                           W 
@@ -34,7 +34,7 @@ W W W W W W W D W W W W W W W
 W                           W 
 W   G       R   R       G   W 
 W       S           S       W 
-D                           D 
+D             S             D 
 W                   S       W 
 W   G       R   R       G   W 
 W                           W 
@@ -42,24 +42,14 @@ W W W W W W W D W W W W W W W
 [9|15]5
 W W W W W W W D W W W W W W W 
 W                           W 
-W     R R R       R R R     W 
-W   R         S         R   W 
-D       S   G   G   S       D 
-W   R                   R   W 
-W     R R R       R R R     W 
-W                           W 
-W W W W W W W D W W W W W W W 
-[9|15]6
-W W W W W W W D W W W W W W W 
-W                           W 
 W   G H   R       R   G H   W 
 W           S   S           W 
 D     R       G       R     D 
-W           S   S           W 
+W           S               W 
 W   G H   R       R   G H   W 
 W                           W 
 W W W W W W W D W W W W W W W 
-[9|15]7
+[9|15]6
 W W W W W W W D W W W W W W W 
 W                           W 
 W                       R   W 
@@ -67,6 +57,16 @@ W                           W
 D         S                 D 
 W                           W 
 W             G             W 
+W                           W 
+W W W W W W W D W W W W W W W 
+[9|15]7
+W W W W W W W D W W W W W W W 
+W                           W 
+W                           W 
+W                           W 
+D                           D 
+W                           W 
+W                           W 
 W                           W 
 W W W W W W W D W W W W W W W 
 [9|15]8
@@ -80,6 +80,16 @@ W                           W
 W                           W 
 W W W W W W W D W W W W W W W 
 [9|15]9
+W W W W W W W D W W W W W W W 
+W                           W 
+W                           W 
+W         R                 W 
+D                 G         D 
+W                           W 
+W                           W 
+W                           W 
+W W W W W W W D W W W W W W W 
+[9|15]10
 W W W W W W W D W W W W W W W 
 W                           W 
 W                           W 
