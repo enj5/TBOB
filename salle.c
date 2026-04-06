@@ -1,3 +1,4 @@
+#include "crud1_salle.h"
 #include "salle.h"
 #include "structs.h"
 
@@ -13,7 +14,7 @@ void set_RoomId(Room *R, int id){
 
 
 
-void creer(Room *R, int n, int m){
+void create(Room *R, int n, int m){
     
     int i, j;
     R->height = n;
@@ -73,18 +74,18 @@ void creer(Room *R, int n, int m){
 }
 
 
-void modif(char** s, int n, int m){
+void modificate(char** s, int n, int m){
     (void)s;
     (void)n;
     (void)m;
 }
 
 
-void suppr(char** s){
+void delete(char** s){
     (void)s;
 }
 
-void show(Room *R){
+void show_room(Room *R){
     
     int i, j;
     for(i = 0; i < R->height; i += 1){
@@ -118,7 +119,7 @@ void configure_room_doors(Room *room, bool north, bool east, bool south, bool we
     if (east)  room->grid[midH][room->width - 1] = 'D';
 }
 
-void freeR(Room *R) {
+void freeRoom(Room *R) {
     if (!R) return;
     if (R->grid) {
         for (int i = 0; i < R->height; ++i) {
@@ -170,7 +171,7 @@ bool generate_and_display_floor(int floor_num,
         else if (i == 13) room_type = "BONUS ITEM ROOM";
 
         printf("\n--- Room #%zu (%s) - ID: %d ---\n", i, room_type, rooms[i].id);
-        show(&rooms[i]);
+        show_room(&rooms[i]);
     }
 
     printf("\n========== FLOOR %d COMPLETE ==========\n", floor_num);

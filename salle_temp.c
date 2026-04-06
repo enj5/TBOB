@@ -1,7 +1,7 @@
 // charger_salle.c
 
 #include <stdio.h>
-#include "game_strucs.h"
+#include "structs.h"
 
 Room charger_salle_depuis_fichier(const char* nomFichier) {
     Room salle;

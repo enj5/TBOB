@@ -1,4 +1,5 @@
 ﻿#include "play_mode.h"
+#include "crud1_salle.h"
 #include "salle.h"
 #include "structs.h"
 #include <stdio.h>
@@ -88,13 +89,34 @@ int play_mode(void)
     } while (width < 9 || width > 19 || (width % 2 == 0));
 
     Room rooms[14];
+    int nS;
+    int i = 0;
+
+
     create_spawner_room_custom(&rooms[0], 0, height, width);
+
+/*
+    FILE* fich = fopen("salles.rtbob", "r"); // Ouverture du fichier en lecture 
+            //Chargement du contenu dans le tableau des salles
+        if(fich != NULL){
+           
+            fscanf(fich, "{%d}\n", &nS); //Lecture nbre de salles
+            for(i = 1; i < nS+1; i++){
+                ReadInFile(&rooms[i], fich); //Lecture de chaque salle
+            }
+
+
+            fclose(fich);
+        }
+*/
+
     for (int i = 1; i <= 10; ++i) {
         create_normal_room_custom(&rooms[i], i, height, width);
     }
     create_item_room_custom(&rooms[11], 11, height, width, 'I');
     create_boss_room_custom(&rooms[12], 12, height, width);
     create_item_room_custom(&rooms[13], 13, height, width, 'H');
+    
 
     typedef struct { int x, y; } Coord;
     Coord pool[29];

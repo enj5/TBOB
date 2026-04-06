@@ -8,11 +8,11 @@
 
 // Original functions
 void set_RoomId(Room*, int); //Identification des salles
-void creer(Room*, int, int);
-void modif(char**, int, int);
-void suppr(char**);
-void show(Room*);
-void freeR(Room*);
+void create(Room*, int, int);
+void modificate(char**, int, int);
+void delete(char**);
+void show_room(Room*);
+void freeRoom(Room*);
 
 // Door configuration helper for playable room transitions
 void configure_room_doors(Room *room, bool north, bool east, bool south, bool west);
