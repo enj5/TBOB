@@ -7,6 +7,7 @@
 #include <string.h>
 #include <time.h>
 #include <conio.h>
+#include <windows.h>
 
 static void afficher_minimap(int layout[6][5], int current_room)
 {
@@ -24,6 +25,50 @@ static void afficher_minimap(int layout[6][5], int current_room)
         }
         printf("\n");
     }
+}
+
+static void render_room(const Room *room, int width, int height)
+{
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            printf("%c ", room->grid[y][x]);
+        }
+        printf("\n");
+    }
+}
+
+static void fire_projectile(Room *room, int width, int height, int start_x, int start_y, int dx, int dy)
+{
+    int x = start_x + dx;
+    int y = start_y + dy;
+    const char *direction = (dx == 1 ? "droite" : dx == -1 ? "gauche" : dy == -1 ? "haut" : "bas");
+
+    while (x >= 0 && x < width && y >= 0 && y < height) {
+        char original = room->grid[y][x];
+        if (original != ' ') {
+            if (original == 'R') {
+                room->grid[y][x] = ' ';
+                printf("Projectile a detruit un rocher en (%d,%d).\n", x, y);
+            } else if (original == 'W' || original == 'D') {
+                printf("Projectile a frappe un obstacle '%c' en (%d,%d).\n", original, x, y);
+            } else {
+                printf("Projectile a touche '%c' en (%d,%d).\n", original, x, y);
+                room->grid[y][x] = ' ';
+            }
+            return;
+        }
+
+        room->grid[y][x] = '*';
+        system("cls");
+        render_room(room, width, height);
+        Sleep(120);
+        room->grid[y][x] = original;
+
+        x += dx;
+        y += dy;
+    }
+
+    printf("Projectile tire vers %s sans rien toucher.\n", direction);
 }
 
 int play_mode(void)
@@ -156,16 +201,39 @@ int play_mode(void)
 
         afficher_minimap(layout, current_room);
 
-        printf("\nMouvement : z/w/up, s/down, q/a/gauche, d/droite, x/quitter\n");
+        printf("\nMouvement : z/w/up, s/down, q/a/gauche, d/droite\n");
+        printf("Tir : fleches directionnelles (haut/bas/gauche/droite), x pour quitter\n");
         int key = getch();
         if (key == 'x' || key == 'X') break;
 
         int dx = 0, dy = 0;
-        if (key == 'z' || key == 'w') dy = -1;
-        else if (key == 's') dy = 1;
-        else if (key == 'q' || key == 'a') dx = -1;
-        else if (key == 'd') dx = 1;
-        else continue;
+        bool shooting = false;
+
+        if (key == 0 || key == 224) {
+            int arrow = getch();
+            shooting = true;
+            if (arrow == 72) dy = -1;
+            else if (arrow == 80) dy = 1;
+            else if (arrow == 75) dx = -1;
+            else if (arrow == 77) dx = 1;
+            else shooting = false;
+        } else if (key == 'z' || key == 'w') {
+            dy = -1;
+        } else if (key == 's') {
+            dy = 1;
+        } else if (key == 'q' || key == 'a') {
+            dx = -1;
+        } else if (key == 'd') {
+            dx = 1;
+        } else {
+            continue;
+        }
+
+        if (shooting) {
+            if (dx == 0 && dy == 0) continue;
+            fire_projectile(&rooms[current_room], width, height, player_x, player_y, dx, dy);
+            continue;
+        }
 
         int nx = player_x + dx;
         int ny = player_y + dy;
