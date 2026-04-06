@@ -77,7 +77,9 @@ int play_mode(void)
     printf("=== TBOB Playable Prototype ===\n\n");
     printf("Contrôles : z/s/q/d ou w/s/a/d, x pour quitter.\n\n");
 
-    int height = 0, width = 0;
+    int height = 9, width = 15;
+
+    /*
     do {
         printf("Entrez la hauteur impaire des salles (9-19) : ");
         if (scanf("%d", &height) != 1) { height = 0; continue; }
@@ -87,6 +89,8 @@ int play_mode(void)
         printf("Entrez la largeur impaire des salles (9-19) : ");
         if (scanf("%d", &width) != 1) { width = 0; continue; }
     } while (width < 9 || width > 19 || (width % 2 == 0));
+    */
+
 
     Room rooms[14];
     int nS;
