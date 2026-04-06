@@ -95,7 +95,7 @@ int play_mode(void)
 
     create_spawner_room_custom(&rooms[0], 0, height, width);
 
-/*
+
     FILE* fich = fopen("salles.rtbob", "r"); // Ouverture du fichier en lecture 
             //Chargement du contenu dans le tableau des salles
         if(fich != NULL){
@@ -108,11 +108,14 @@ int play_mode(void)
 
             fclose(fich);
         }
-*/
 
+/*
     for (int i = 1; i <= 10; ++i) {
         create_normal_room_custom(&rooms[i], i, height, width);
     }
+
+*/
+
     create_item_room_custom(&rooms[11], 11, height, width, 'I');
     create_boss_room_custom(&rooms[12], 12, height, width);
     create_item_room_custom(&rooms[13], 13, height, width, 'H');
