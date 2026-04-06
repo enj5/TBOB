@@ -1,6 +1,5 @@
 #include "crud1_salle.h"
-#include "salle.h"
-#include "structs.h"
+#include "crud1_structs.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -114,8 +113,6 @@ void modif(Room* R, int id){
             scanf(" %c", &choice);  
         }while(choice != 'G' && choice != 'R' && choice != 'S' && choice != 'H' && choice != 'E');
 
-        
-
         if(choice == 'E'){
             ME = 'E';
         }
@@ -192,7 +189,7 @@ void DelInFile(int id, int nS){
 
     FILE* fich = fopen("salles.rtbob", "r");
     int i;
-    Room tab_Room[14];
+    Room tab_Room[nS];
     //Room tab_Room2[nS-1];
 
     //LECTURE
