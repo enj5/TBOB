@@ -5,16 +5,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+/// Supprime la fin de ligne '\n' et le retour chariot '\r' si présent.
+/// Utile pour nettoyer les chaînes lues avec fgets avant de les traiter.
 static void trim_newline(char *s) {
     if (!s) return;
     size_t len = strlen(s);
     if (len == 0) return;
+    
+    //s[strcspen(s, "\n")] = '\0';
     if (s[len - 1] == '\n')
         s[len - 1] = '\0';
     if (len > 1 && s[len - 2] == '\r')
         s[len - 2] = '\0';
 }
 
+/// Supprime les espaces en début et fin de chaîne.
+/// Retourne le pointeur vers la première position non espace.
 static char *trim_whitespace(char *s) {
     if (!s) return s;
     while (*s && isspace((unsigned char)*s))
@@ -27,6 +33,8 @@ static char *trim_whitespace(char *s) {
     return s;
 }
 
+/// Analyse une ligne au format "clé=valeur".
+/// Sépare la clé et la valeur en supprimant les espaces autour.
 static bool parse_line_kv(char *line, char **outKey, char **outValue) {
     char *sep = strchr(line, '=');
     if (!sep) return false;
@@ -36,6 +44,8 @@ static bool parse_line_kv(char *line, char **outKey, char **outValue) {
     return true;
 }
 
+/// Écrit un bloc d'item dans le fichier de sauvegarde.
+/// Seuls les champs définis sont écrits pour éviter les valeurs nulles.
 static void write_item_block(FILE *f, const Item *item) {
     fprintf(f, "---\n");
     if (item->name[0] != '\0')
@@ -54,6 +64,8 @@ static void write_item_block(FILE *f, const Item *item) {
         fprintf(f, "flight=1\n");
 }
 
+/// Remplace le contenu du fichier par la liste complète d'items.
+/// Écrit d'abord le nombre d'items, puis chaque bloc d'item.
 bool overwrite_items_file(const char *filename, const Item *items, size_t count) {
     if (!filename)
         return false;
@@ -70,6 +82,8 @@ bool overwrite_items_file(const char *filename, const Item *items, size_t count)
     return true;
 }
 
+/// Charge la liste d'items depuis un fichier.
+/// Lit les blocs délimités par '---' et construit un tableau dynamique.
 bool load_items_from_file(const char *filename, Item **outItems, size_t *outCount) {
     if (!outItems || !outCount)
         return false;
@@ -174,6 +188,7 @@ bool load_items_from_file(const char *filename, Item **outItems, size_t *outCoun
     return true;
 }
 
+/// Ajoute un nouvel item à la fin du fichier en rechargeant puis réécrivant tout.
 bool append_item_to_file(const char *filename, const Item *item) {
     if (!filename || !item)
         return false;
@@ -197,10 +212,12 @@ bool append_item_to_file(const char *filename, const Item *item) {
     return ok;
 }
 
+/// Libère la mémoire allouée pour le tableau d'items.
 void free_items(Item *items) {
     free(items);
 }
 
+/// Affiche les propriétés d'un item à l'écran avec son index.
 void print_item(const Item *item, size_t index) {
     if (!item) return;
     printf("[%zu] %s\n", index, item->name);
@@ -211,6 +228,8 @@ void print_item(const Item *item, size_t index) {
            item->flight ? "yes" : "no");
 }
 
+/// Charge tous les items depuis le fichier et les affiche.
+/// Retourne true même si le fichier est vide ou absent.
 bool print_all_items(const char *filename) {
     Item *items = NULL;
     size_t count = 0;
@@ -231,6 +250,8 @@ bool print_all_items(const char *filename) {
     return true;
 }
 
+/// Met à jour l'item à l'index donné dans le fichier.
+/// Recharge d'abord la liste, modifie l'élément, puis réécrit le fichier.
 bool update_item_in_file(const char *filename, size_t index, const Item *newItem) {
     if (!newItem)
         return false;
@@ -251,6 +272,7 @@ bool update_item_in_file(const char *filename, size_t index, const Item *newItem
     return ok;
 }
 
+/// Supprime un item du fichier en enlevant son entrée et en sauvegardant la liste modifiée.
 bool delete_item_in_file(const char *filename, size_t index) {
     Item *items = NULL;
     size_t count = 0;
