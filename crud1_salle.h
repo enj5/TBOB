@@ -1,4 +1,4 @@
-#include "crud1_structs.h"
+#include "structs.h"
 #include <stdio.h>
 
 #ifndef CRUD1_SALLE_H
