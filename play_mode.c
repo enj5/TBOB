@@ -10,9 +10,11 @@
 #include <conio.h>
 #include <windows.h>
 
+// Projectile en vol : position et direction
 typedef struct {
-    int x, y, dx, dy;
-    bool active;
+    int x, y;      // coordonnées actuelles du projectile
+    int dx, dy;    // direction du mouvement (par exemple, (1,0) droite)
+    bool active;   // actif si il continue de voler
 } Projectile;
 
 #define MAX_PROJECTILES 10
@@ -25,7 +27,7 @@ static void afficher_minimap(int layout[6][5], int current_room)
         for (int x = 0; x < 5; ++x) {
             if (layout[y][x] == -1) {
                 printf(" . ");
-            } else if (layout[y][x] == current_room) {
+            } else if (d[y][x] == current_room) {
                 printf(" P ");
             } else {
                 printf(" * ");
@@ -37,6 +39,7 @@ static void afficher_minimap(int layout[6][5], int current_room)
 
 static void render_room(const Room *room, int width, int height, Projectile projectiles[], int num_projectiles)
 {
+    // Affiche la salle et superpose les projectiles actifs.
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             char c = room->grid[y][x];
@@ -48,7 +51,7 @@ static void render_room(const Room *room, int width, int height, Projectile proj
                 }
             }
             if (has_projectile) {
-                printf("* ");
+                printf("* "); // projectile visible sur la carte
             } else {
                 printf("%c ", c);
             }
@@ -64,7 +67,7 @@ static void update_projectiles(Room *room, int width, int height, Projectile pro
         int nx = projectiles[p].x + projectiles[p].dx;
         int ny = projectiles[p].y + projectiles[p].dy;
         if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
-            projectiles[p].active = false;
+            projectiles[p].active = false; // sort de la carte
             continue;
         }
         char cible = room->grid[ny][nx];
@@ -78,13 +81,13 @@ static void update_projectiles(Room *room, int width, int height, Projectile pro
                 printf("Projectile a touche '%c' en (%d,%d).\n", cible, nx, ny);
                 room->grid[ny][nx] = ' ';
             }
-            projectiles[p].active = false;
+            projectiles[p].active = false; // impact et fin du projectile
             continue;
         }
         projectiles[p].x = nx;
         projectiles[p].y = ny;
     }
-    // Remove inactive projectiles
+    // Compresse le tableau de projectiles en supprimant les inactifs
     int active_count = 0;
     for (int p = 0; p < *num_projectiles; ++p) {
         if (projectiles[p].active) {
@@ -149,6 +152,13 @@ int play_mode(void)
 
     typedef struct { int x, y; } Coord;
     Coord pool[29];
+
+    Entity Lenina;
+    Entity jogger;
+
+    jogger.dmg = 1.0f;
+    jogger.hpMax = 5.0f;
+
     int idx = 0;
     for (int y = 0; y < 6; ++y) {
         for (int x = 0; x < 5; ++x) {
@@ -242,21 +252,21 @@ int play_mode(void)
     int num_projectiles = 0;
 
     bool playing = true;
-    bool needs_render = true;
+    bool needs_render = true; // contrôle du rendu pour éviter le scintillement
     while (playing) {
         bool has_input = false;
-        // Handle input
+        // Gestion de l'entrée sans bloquer l'exécution
         int key = -1;
         if (kbhit()) {
             key = getch();
             if (key == 0 || key == 224) {
-                key = getch(); // arrow key
+                key = getch(); // touche spéciale, par exemple flèche
             }
             has_input = true;
         }
 
         if (key == 'x' || key == 'X') {
-            playing = false;
+            playing = false; // quitter le mode de jeu
             continue;
         }
 
@@ -274,6 +284,7 @@ int play_mode(void)
 
         bool moved = false;
         if (shooting && num_projectiles < MAX_PROJECTILES) {
+            // Tir non bloquant : on ajoute le projectile à la liste et on continue
             projectiles[num_projectiles].x = player_x + dx;
             projectiles[num_projectiles].y = player_y + dy;
             projectiles[num_projectiles].dx = dx;
@@ -282,7 +293,7 @@ int play_mode(void)
             num_projectiles++;
             needs_render = true;
         } else if (!shooting && (dx != 0 || dy != 0)) {
-            // Movement
+            // Déplacement du joueur
             int nx = player_x + dx;
             int ny = player_y + dy;
             if (nx >= 0 && ny >= 0 && nx < width && ny < height) {
@@ -322,14 +333,14 @@ int play_mode(void)
             }
         }
 
-        // Update projectiles
+        // Met à jour la position de tous les projectiles actifs
         int prev_num = num_projectiles;
         update_projectiles(&rooms[current_room], width, height, projectiles, &num_projectiles);
         if (num_projectiles != prev_num || moved || has_input) {
-            needs_render = true;
+            needs_render = true; // redessine seulement lorsqu'il y a un changement
         }
 
-        // Render only if needed
+        // Rendu conditionnel pour éviter le scintillement constant
         if (needs_render) {
             system("cls");
             printf("Salle actuelle : %d / 13\n", current_room);
