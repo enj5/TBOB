@@ -10,6 +10,13 @@
 #include <conio.h>
 #include <windows.h>
 
+typedef struct {
+    int x, y, dx, dy;
+    bool active;
+} Projectile;
+
+#define MAX_PROJECTILES 10
+
 static void afficher_minimap(int layout[6][5], int current_room)
 {
     printf("\nMinicarte (grille 5x6) :\n\n");
@@ -28,48 +35,63 @@ static void afficher_minimap(int layout[6][5], int current_room)
     }
 }
 
-static void render_room(const Room *room, int width, int height)
+static void render_room(const Room *room, int width, int height, Projectile projectiles[], int num_projectiles)
 {
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            printf("%c ", room->grid[y][x]);
+            char c = room->grid[y][x];
+            bool has_projectile = false;
+            for (int p = 0; p < num_projectiles; ++p) {
+                if (projectiles[p].active && projectiles[p].x == x && projectiles[p].y == y) {
+                    has_projectile = true;
+                    break;
+                }
+            }
+            if (has_projectile) {
+                printf("* ");
+            } else {
+                printf("%c ", c);
+            }
         }
         printf("\n");
     }
 }
 
-static void fire_projectile(Room *room, int width, int height, int start_x, int start_y, int dx, int dy)
+static void update_projectiles(Room *room, int width, int height, Projectile projectiles[], int *num_projectiles)
 {
-    int x = start_x + dx;
-    int y = start_y + dy;
-    const char *direction = (dx == 1 ? "droite" : dx == -1 ? "gauche" : dy == -1 ? "haut" : "bas");
-
-    while (x >= 0 && x < width && y >= 0 && y < height) {
-        char original = room->grid[y][x];
-        if (original != ' ') {
-            if (original == 'R') {
-                room->grid[y][x] = ' ';
-                printf("Projectile a detruit un rocher en (%d,%d).\n", x, y);
-            } else if (original == 'W' || original == 'D') {
-                printf("Projectile a frappe un obstacle '%c' en (%d,%d).\n", original, x, y);
-            } else {
-                printf("Projectile a touche '%c' en (%d,%d).\n", original, x, y);
-                room->grid[y][x] = ' ';
-            }
-            return;
+    for (int p = 0; p < *num_projectiles; ++p) {
+        if (!projectiles[p].active) continue;
+        int nx = projectiles[p].x + projectiles[p].dx;
+        int ny = projectiles[p].y + projectiles[p].dy;
+        if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+            projectiles[p].active = false;
+            continue;
         }
-
-        room->grid[y][x] = '*';
-        system("cls");
-        render_room(room, width, height);
-        Sleep(120);
-        room->grid[y][x] = original;
-
-        x += dx;
-        y += dy;
+        char cible = room->grid[ny][nx];
+        if (cible != ' ') {
+            if (cible == 'R') {
+                room->grid[ny][nx] = ' ';
+                printf("Projectile a detruit un rocher en (%d,%d).\n", nx, ny);
+            } else if (cible == 'W' || cible == 'D') {
+                printf("Projectile a frappe un obstacle '%c' en (%d,%d).\n", cible, nx, ny);
+            } else {
+                printf("Projectile a touche '%c' en (%d,%d).\n", cible, nx, ny);
+                room->grid[ny][nx] = ' ';
+            }
+            projectiles[p].active = false;
+            continue;
+        }
+        projectiles[p].x = nx;
+        projectiles[p].y = ny;
     }
-
-    printf("Projectile tire vers %s sans rien toucher.\n", direction);
+    // Remove inactive projectiles
+    int active_count = 0;
+    for (int p = 0; p < *num_projectiles; ++p) {
+        if (projectiles[p].active) {
+            projectiles[active_count++] = projectiles[p];
+        }
+    }
+    *num_projectiles = active_count;
 }
 
 int play_mode(void)
@@ -216,91 +238,109 @@ int play_mode(void)
     int player_x = width / 2;
     int player_y = height / 2;
 
-    bool playing = true;
-    while (playing) {
-        system("cls");
-        printf("Salle actuelle : %d / 13\n", current_room);
+    Projectile projectiles[MAX_PROJECTILES];
+    int num_projectiles = 0;
 
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                printf("%c ", rooms[current_room].grid[y][x]);
+    bool playing = true;
+    bool needs_render = true;
+    while (playing) {
+        bool has_input = false;
+        // Handle input
+        int key = -1;
+        if (kbhit()) {
+            key = getch();
+            if (key == 0 || key == 224) {
+                key = getch(); // arrow key
             }
-            printf("\n");
+            has_input = true;
         }
 
-        afficher_minimap(layout, current_room);
-
-        printf("\nMouvement : z/w/up, s/down, q/a/gauche, d/droite\n");
-        printf("Tir : fleches directionnelles (haut/bas/gauche/droite), x pour quitter\n");
-        int key = getch();
-        if (key == 'x' || key == 'X') break;
+        if (key == 'x' || key == 'X') {
+            playing = false;
+            continue;
+        }
 
         int dx = 0, dy = 0;
         bool shooting = false;
 
-        if (key == 0 || key == 224) {
-            int arrow = getch();
-            shooting = true;
-            if (arrow == 72) dy = -1;
-            else if (arrow == 80) dy = 1;
-            else if (arrow == 75) dx = -1;
-            else if (arrow == 77) dx = 1;
-            else shooting = false;
-        } else if (key == 'z' || key == 'w') {
-            dy = -1;
-        } else if (key == 's') {
-            dy = 1;
-        } else if (key == 'q' || key == 'a') {
-            dx = -1;
-        } else if (key == 'd') {
-            dx = 1;
-        } else {
-            continue;
+        if (key == 72) { shooting = true; dy = -1; } // up arrow
+        else if (key == 80) { shooting = true; dy = 1; } // down
+        else if (key == 75) { shooting = true; dx = -1; } // left
+        else if (key == 77) { shooting = true; dx = 1; } // right
+        else if (key == 'z' || key == 'w') dy = -1;
+        else if (key == 's') dy = 1;
+        else if (key == 'q' || key == 'a') dx = -1;
+        else if (key == 'd') dx = 1;
+
+        bool moved = false;
+        if (shooting && num_projectiles < MAX_PROJECTILES) {
+            projectiles[num_projectiles].x = player_x + dx;
+            projectiles[num_projectiles].y = player_y + dy;
+            projectiles[num_projectiles].dx = dx;
+            projectiles[num_projectiles].dy = dy;
+            projectiles[num_projectiles].active = true;
+            num_projectiles++;
+            needs_render = true;
+        } else if (!shooting && (dx != 0 || dy != 0)) {
+            // Movement
+            int nx = player_x + dx;
+            int ny = player_y + dy;
+            if (nx >= 0 && ny >= 0 && nx < width && ny < height) {
+                char cible = rooms[current_room].grid[ny][nx];
+                if (cible != 'W' && cible != 'R') {
+                    if (cible == 'D') {
+                        int dir = -1;
+                        int midW = width / 2;
+                        int midH = height / 2;
+
+                        if (ny == 0 && nx == midW) dir = 0;
+                        else if (nx == width - 1 && ny == midH) dir = 1;
+                        else if (ny == height - 1 && nx == midW) dir = 2;
+                        else if (nx == 0 && ny == midH) dir = 3;
+
+                        if (dir != -1) {
+                            int next_room = adjacency[current_room][dir];
+                            if (next_room != -1) {
+                                rooms[current_room].grid[player_y][player_x] = 'D';
+                                current_room = next_room;
+                                if (dir == 0) { player_y = height - 2; player_x = midW; }
+                                else if (dir == 1) { player_y = midH; player_x = 1; }
+                                else if (dir == 2) { player_y = 1; player_x = midW; }
+                                else if (dir == 3) { player_y = midH; player_x = width - 2; }
+                                rooms[current_room].grid[player_y][player_x] = 'P';
+                                moved = true;
+                            }
+                        }
+                    } else {
+                        rooms[current_room].grid[player_y][player_x] = ' ';
+                        player_x = nx;
+                        player_y = ny;
+                        rooms[current_room].grid[player_y][player_x] = 'P';
+                        moved = true;
+                    }
+                }
+            }
         }
 
-        if (shooting) {
-            if (dx == 0 && dy == 0) continue;
-            fire_projectile(&rooms[current_room], width, height, player_x, player_y, dx, dy);
-            continue;
+        // Update projectiles
+        int prev_num = num_projectiles;
+        update_projectiles(&rooms[current_room], width, height, projectiles, &num_projectiles);
+        if (num_projectiles != prev_num || moved || has_input) {
+            needs_render = true;
         }
 
-        int nx = player_x + dx;
-        int ny = player_y + dy;
-        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-
-        char cible = rooms[current_room].grid[ny][nx];
-        if (cible == 'W' || cible == 'R') continue;
-
-        if (cible == 'D') {
-            int dir = -1;
-            int midW = width / 2;
-            int midH = height / 2;
-
-            if (ny == 0 && nx == midW) dir = 0;
-            else if (nx == width - 1 && ny == midH) dir = 1;
-            else if (ny == height - 1 && nx == midW) dir = 2;
-            else if (nx == 0 && ny == midH) dir = 3;
-
-            if (dir == -1) continue;
-
-            int next_room = adjacency[current_room][dir];
-            if (next_room == -1) continue;
-
-            rooms[current_room].grid[player_y][player_x] = 'D';
-            current_room = next_room;
-            if (dir == 0) { player_y = height - 2; player_x = midW; }
-            else if (dir == 1) { player_y = midH;       player_x = 1; }
-            else if (dir == 2) { player_y = 1;          player_x = midW; }
-            else if (dir == 3) { player_y = midH;       player_x = width - 2; }
-
-            rooms[current_room].grid[player_y][player_x] = 'P';
-            continue;
+        // Render only if needed
+        if (needs_render) {
+            system("cls");
+            printf("Salle actuelle : %d / 13\n", current_room);
+            render_room(&rooms[current_room], width, height, projectiles, num_projectiles);
+            afficher_minimap(layout, current_room);
+            printf("\nMouvement : z/w/up, s/down, q/a/gauche, d/droite\n");
+            printf("Tir : fleches directionnelles, x pour quitter\n");
+            needs_render = false;
         }
 
-        rooms[current_room].grid[player_y][player_x] = ' ';
-        player_x = nx;
-        player_y = ny;
-        rooms[current_room].grid[player_y][player_x] = 'P';
+        Sleep(100); // ~10 FPS
     }
 
     for (int i = 0; i < 14; ++i) freeR(&rooms[i]);
