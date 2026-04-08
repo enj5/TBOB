@@ -19,6 +19,31 @@ typedef struct {
 
 #define MAX_PROJECTILES 10
 
+static int load_monsters(const char *filename, Entity monsters[], int max_monsters) {
+    FILE *f = fopen(filename, "r");
+    if (!f) return 0;
+    int count;
+    fscanf(f, "{%d}\n", &count);
+    for (int i = 0; i < count && i < max_monsters; ++i) {
+        fscanf(f, "---\n");
+        fscanf(f, "name=%[^\n]\n", monsters[i].name);
+        fscanf(f, "hpMax=%f\n", &monsters[i].hpMax);
+        monsters[i].shoot = 0;
+        monsters[i].ss = 0;
+        monsters[i].flight = 0;
+        monsters[i].dmg = 10.0f; // valeur par défaut
+        char line[256];
+        while (fgets(line, sizeof(line), f)) {
+            if (strstr(line, "---")) break;
+            if (strstr(line, "shoot=1")) monsters[i].shoot = 1;
+            else if (strstr(line, "ss=1")) monsters[i].ss = 1;
+            else if (strstr(line, "flight=1")) monsters[i].flight = 1;
+        }
+    }
+    fclose(f);
+    return count;
+}
+
 static void afficher_minimap(int layout[6][5], int current_room)
 {
     printf("\nMinicarte (grille 5x6) :\n\n");
@@ -27,7 +52,7 @@ static void afficher_minimap(int layout[6][5], int current_room)
         for (int x = 0; x < 5; ++x) {
             if (layout[y][x] == -1) {
                 printf(" . ");
-            } else if (d[y][x] == current_room) {
+            } else if (layout[y][x] == current_room) {
                 printf(" P ");
             } else {
                 printf(" * ");
@@ -149,6 +174,11 @@ int play_mode(void)
     create_boss_room_custom(&rooms[12], 12, height, width);
     create_item_room_custom(&rooms[13], 13, height, width, 'H');
     
+
+    Entity monster_types[10];
+    int num_monster_types = load_monsters("monstres.mtbob", monster_types, 10);
+    bool visited[14] = {false};
+    visited[0] = true; // salle spawner déjà visitée
 
     typedef struct { int x, y; } Coord;
     Coord pool[29];
@@ -320,6 +350,31 @@ int play_mode(void)
                                 else if (dir == 3) { player_y = midH; player_x = width - 2; }
                                 rooms[current_room].grid[player_y][player_x] = 'P';
                                 moved = true;
+                                // Spawn de monstres si première visite d'une salle normale
+                                if (!visited[current_room] && current_room >= 1 && current_room <= 10) {
+                                    visited[current_room] = true;
+                                    int num_monsters = rand() % 6 + 1;
+                                    int num_types = rand() % 2 + 1;
+                                    int selected_types[2];
+                                    for (int t = 0; t < num_types; ++t) {
+                                        selected_types[t] = rand() % num_monster_types;
+                                    }
+                                    for (int m = 0; m < num_monsters; ++m) {
+                                        int type = selected_types[rand() % num_types];
+                                        // Trouver une position aléatoire valide
+                                        int attempts = 0;
+                                        bool placed = false;
+                                        while (attempts < 100 && !placed) {
+                                            int x = rand() % width;
+                                            int y = rand() % height;
+                                            if (rooms[current_room].grid[y][x] == ' ') {
+                                                rooms[current_room].grid[y][x] = 'M';
+                                                placed = true;
+                                            }
+                                            attempts++;
+                                        }
+                                    }
+                                }
                             }
                         }
                     } else {
