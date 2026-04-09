@@ -17,7 +17,50 @@ typedef struct {
     bool active;   // actif si il continue de voler
 } Projectile;
 
+
 #define MAX_PROJECTILES 10
+
+// Retourne true si la salle contient au moins un monstre ('M')
+static bool room_has_monsters(const Room *room) {
+    for (int y = 0; y < room->height; ++y)
+        for (int x = 0; x < room->width; ++x)
+            if (room->grid[y][x] == 'M') // changer en fonction de id monstres ou de l'ascii
+                return true;
+    return false;
+}
+
+static void close_doors(Room *room) {
+    int midW = room->width / 2;
+    int midH = room->height / 2;
+    
+    for (int x = 0; x < room->width; ++x) {
+        if (room->grid[0][x] == 'D') room->grid[0][x] = 'L';
+        if (room->grid[room->height-1][x] == 'D') room->grid[room->height-1][x] = 'L';
+    }
+    
+    for (int y = 1; y < room->height-1; ++y) {
+        if (room->grid[y][0] == 'D') room->grid[y][0] = 'L';
+        if (room->grid[y][room->width-1] == 'D') room->grid[y][room->width-1] = 'L';
+    }
+    (void)midW; (void)midH;
+}
+
+static void unlock_doors(Room *room, bool north, bool east, bool south, bool west) {
+    int midW = room->width / 2;
+    int midH = room->height / 2;
+    // Haut
+    if (room->grid[0][midW] == 'L')
+        room->grid[0][midW] = north ? 'D' : 'W';
+    // Bas
+    if (room->grid[room->height-1][midW] == 'L')
+        room->grid[room->height-1][midW] = south ? 'D' : 'W';
+    // Gauche
+    if (room->grid[midH][0] == 'L')
+        room->grid[midH][0] = west ? 'D' : 'W';
+    // Droite
+    if (room->grid[midH][room->width-1] == 'L')
+        room->grid[midH][room->width-1] = east ? 'D' : 'W';
+}
 
 static int load_monsters(const char *filename, Entity monsters[], int max_monsters) {
     FILE *f = fopen(filename, "r");
