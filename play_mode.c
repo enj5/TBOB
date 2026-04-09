@@ -134,20 +134,26 @@ static bool can_monster_enter(char tile)
     return tile == ' ';
 }
 
-static bool apply_monster_attacks(const Room *room, int width, int height, int player_x, int player_y, int *player_hp)
+static bool apply_monster_attacks(const Room *room, int width, int height, int player_x, int player_y, int *player_hp, int *attack_cooldown)
 {
     const int damage = 1;
     bool attacked = false;
     const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
-    for (int i = 0; i < 4; ++i) {
-        int nx = player_x + dirs[i][0];
-        int ny = player_y + dirs[i][1];
-        if (nx < 0 || nx >= width || ny < 0 || ny >= height)
-            continue;
-        if (room->grid[ny][nx] == 'M') {
-            *player_hp -= damage;
-            attacked = true;
+    (*attack_cooldown)++;
+
+    if (*attack_cooldown >= 10) {
+        for (int i = 0; i < 4; ++i) {
+            int nx = player_x + dirs[i][0];
+            int ny = player_y + dirs[i][1];
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height)
+                continue;
+            if (room->grid[ny][nx] == 'M') {
+                *player_hp -= damage;
+                attacked = true;
+                *attack_cooldown = 0;
+                break;
+            }
         }
     }
 
@@ -390,6 +396,7 @@ int play_mode(void)
     int player_y = height / 2;
     int player_hp = 10;
     int monster_tick = 0;
+    int monster_attack_cooldown = 0;
 
     Projectile projectiles[MAX_PROJECTILES];
     int num_projectiles = 0;
@@ -428,8 +435,8 @@ int play_mode(void)
         bool moved = false;
         if (shooting && num_projectiles < MAX_PROJECTILES) {
             // Tir non bloquant : on ajoute le projectile à la liste et on continue
-            projectiles[num_projectiles].x = player_x + dx;
-            projectiles[num_projectiles].y = player_y + dy;
+            projectiles[num_projectiles].x = player_x;
+            projectiles[num_projectiles].y = player_y;
             projectiles[num_projectiles].dx = dx;
             projectiles[num_projectiles].dy = dy;
             projectiles[num_projectiles].active = true;
@@ -457,6 +464,7 @@ int play_mode(void)
                             if (next_room != -1) {
                                 rooms[current_room].grid[player_y][player_x] = 'D';
                                 current_room = next_room;
+                                monster_attack_cooldown = 0;
                                 if (dir == 0) { player_y = height - 2; player_x = midW; }
                                 else if (dir == 1) { player_y = midH; player_x = 1; }
                                 else if (dir == 2) { player_y = 1; player_x = midW; }
@@ -506,10 +514,10 @@ int play_mode(void)
         int prev_num = num_projectiles;
         update_projectiles(&rooms[current_room], width, height, projectiles, &num_projectiles);
 
-        bool attacked = apply_monster_attacks(&rooms[current_room], width, height, player_x, player_y, &player_hp);
-        bool do_move = (monster_tick % 2) == 0;
+        bool attacked = apply_monster_attacks(&rooms[current_room], width, height, player_x, player_y, &player_hp, &monster_attack_cooldown);
+        bool do_move = (monster_tick % 5) == 0;
         bool monsters_moved = update_monsters(&rooms[current_room], width, height, player_x, player_y, do_move);
-        monster_tick = (monster_tick + 1) % 2;
+        monster_tick++;
 
         if (player_hp <= 0) {
             playing = false;
