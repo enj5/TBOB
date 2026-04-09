@@ -134,8 +134,34 @@ static bool can_monster_enter(char tile)
     return tile == ' ';
 }
 
-static bool update_monsters(Room *room, int width, int height, int player_x, int player_y)
+static bool apply_monster_attacks(const Room *room, int width, int height, int player_x, int player_y, int *player_hp)
 {
+    const int damage = 1;
+    bool attacked = false;
+    const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+    for (int i = 0; i < 4; ++i) {
+        int nx = player_x + dirs[i][0];
+        int ny = player_y + dirs[i][1];
+        if (nx < 0 || nx >= width || ny < 0 || ny >= height)
+            continue;
+        if (room->grid[ny][nx] == 'M') {
+            *player_hp -= damage;
+            attacked = true;
+        }
+    }
+
+    if (*player_hp < 0)
+        *player_hp = 0;
+
+    return attacked;
+}
+
+static bool update_monsters(Room *room, int width, int height, int player_x, int player_y, bool do_move)
+{
+    if (!do_move)
+        return false;
+
     char original[20][20];
     char next_grid[20][20];
     bool any_moved = false;
@@ -362,6 +388,8 @@ int play_mode(void)
     int current_room = 0;
     int player_x = width / 2;
     int player_y = height / 2;
+    int player_hp = 10;
+    int monster_tick = 0;
 
     Projectile projectiles[MAX_PROJECTILES];
     int num_projectiles = 0;
@@ -478,10 +506,17 @@ int play_mode(void)
         int prev_num = num_projectiles;
         update_projectiles(&rooms[current_room], width, height, projectiles, &num_projectiles);
 
-        // Déplace les monstres vers le joueur dans la salle actuelle
-        bool monsters_moved = update_monsters(&rooms[current_room], width, height, player_x, player_y);
+        bool attacked = apply_monster_attacks(&rooms[current_room], width, height, player_x, player_y, &player_hp);
+        bool do_move = (monster_tick % 2) == 0;
+        bool monsters_moved = update_monsters(&rooms[current_room], width, height, player_x, player_y, do_move);
+        monster_tick = (monster_tick + 1) % 2;
 
-        if (num_projectiles != prev_num || moved || monsters_moved || has_input) {
+        if (player_hp <= 0) {
+            playing = false;
+            printf("\n¡Has sido derrotado por los monstruos!\n");
+        }
+
+        if (num_projectiles != prev_num || moved || monsters_moved || attacked || has_input) {
             needs_render = true; // redessine seulement lorsqu'il y a un changement
         }
 
@@ -489,6 +524,7 @@ int play_mode(void)
         if (needs_render) {
             system("cls");
             printf("Salle actuelle : %d / 13\n", current_room);
+            printf("HP joueur : %d\n", player_hp);
             render_room(&rooms[current_room], width, height, projectiles, num_projectiles);
             afficher_minimap(layout, current_room);
             printf("\nMouvement : z/w/up, s/down, q/a/gauche, d/droite\n");
