@@ -122,6 +122,91 @@ static void update_projectiles(Room *room, int width, int height, Projectile pro
     *num_projectiles = active_count;
 }
 
+static int sign_int(int value)
+{
+    if (value > 0) return 1;
+    if (value < 0) return -1;
+    return 0;
+}
+
+static bool can_monster_enter(char tile)
+{
+    return tile == ' ';
+}
+
+static bool update_monsters(Room *room, int width, int height, int player_x, int player_y)
+{
+    char original[20][20];
+    char next_grid[20][20];
+    bool any_moved = false;
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            original[y][x] = room->grid[y][x];
+            next_grid[y][x] = room->grid[y][x];
+        }
+    }
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if (original[y][x] != 'M')
+                continue;
+
+            int dx = sign_int(player_x - x);
+            int dy = sign_int(player_y - y);
+            int nx = x;
+            int ny = y;
+            bool moved = false;
+
+            int dist_x = abs(player_x - x);
+            int dist_y = abs(player_y - y);
+
+            if (dist_x >= dist_y && dx != 0) {
+                int tx = x + dx;
+                if (tx >= 0 && tx < width && can_monster_enter(original[y][tx]) && next_grid[y][tx] == ' ') {
+                    nx = tx;
+                    moved = true;
+                }
+            }
+
+            if (!moved && dy != 0) {
+                int ty = y + dy;
+                if (ty >= 0 && ty < height && can_monster_enter(original[ty][x]) && next_grid[ty][x] == ' ') {
+                    ny = ty;
+                    moved = true;
+                }
+            }
+
+            if (!moved && dist_x < dist_y && dx != 0) {
+                int tx = x + dx;
+                if (tx >= 0 && tx < width && can_monster_enter(original[y][tx]) && next_grid[y][tx] == ' ') {
+                    nx = tx;
+                    moved = true;
+                }
+            }
+
+            if (!moved || (nx == x && ny == y))
+                continue;
+
+            if (next_grid[ny][nx] == 'P') {
+                continue;
+            }
+
+            next_grid[y][x] = ' ';
+            next_grid[ny][nx] = 'M';
+            any_moved = true;
+        }
+    }
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            room->grid[y][x] = next_grid[y][x];
+        }
+    }
+
+    return any_moved;
+}
+
 int play_mode(void)
 {
     printf("=== TBOB Playable Prototype ===\n\n");
@@ -352,6 +437,7 @@ int play_mode(void)
                                 moved = true;
                                 // Spawn de monstres si première visite d'une salle normale
                                 if (!visited[current_room] && current_room >= 1 && current_room <= 10) {
+                                    
                                     visited[current_room] = true;
                                     int num_monsters = rand() % 6 + 1;
                                     int num_types = rand() % 2 + 1;
@@ -391,7 +477,11 @@ int play_mode(void)
         // Met à jour la position de tous les projectiles actifs
         int prev_num = num_projectiles;
         update_projectiles(&rooms[current_room], width, height, projectiles, &num_projectiles);
-        if (num_projectiles != prev_num || moved || has_input) {
+
+        // Déplace les monstres vers le joueur dans la salle actuelle
+        bool monsters_moved = update_monsters(&rooms[current_room], width, height, player_x, player_y);
+
+        if (num_projectiles != prev_num || moved || monsters_moved || has_input) {
             needs_render = true; // redessine seulement lorsqu'il y a un changement
         }
 
