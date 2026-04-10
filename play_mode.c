@@ -85,8 +85,9 @@ static void render_room(const Room *room, int width, int height, Projectile proj
     }
 }
 
-static void update_projectiles(Room *room, int width, int height, Projectile projectiles[], int *num_projectiles)
+static bool update_projectiles(Room *room, int width, int height, Projectile projectiles[], int *num_projectiles)
 {
+    bool any_moved = false;
     for (int p = 0; p < *num_projectiles; ++p) {
         if (!projectiles[p].active) continue;
         int nx = projectiles[p].x + projectiles[p].dx;
@@ -111,6 +112,7 @@ static void update_projectiles(Room *room, int width, int height, Projectile pro
         }
         projectiles[p].x = nx;
         projectiles[p].y = ny;
+        any_moved = true;
     }
     // Compresse le tableau de projectiles en supprimant les inactifs
     int active_count = 0;
@@ -120,6 +122,7 @@ static void update_projectiles(Room *room, int width, int height, Projectile pro
         }
     }
     *num_projectiles = active_count;
+    return any_moved;
 }
 
 static int sign_int(int value)
@@ -512,7 +515,7 @@ int play_mode(void)
 
         // Met à jour la position de tous les projectiles actifs
         int prev_num = num_projectiles;
-        update_projectiles(&rooms[current_room], width, height, projectiles, &num_projectiles);
+        bool projectiles_moved = update_projectiles(&rooms[current_room], width, height, projectiles, &num_projectiles);
 
         bool attacked = apply_monster_attacks(&rooms[current_room], width, height, player_x, player_y, &player_hp, &monster_attack_cooldown);
         bool do_move = (monster_tick % 5) == 0;
@@ -524,7 +527,7 @@ int play_mode(void)
             printf("\n¡Has sido derrotado por los monstruos!\n");
         }
 
-        if (num_projectiles != prev_num || moved || monsters_moved || attacked || has_input) {
+        if (num_projectiles != prev_num || moved || monsters_moved || attacked || projectiles_moved || has_input) {
             needs_render = true; // redessine seulement lorsqu'il y a un changement
         }
 
