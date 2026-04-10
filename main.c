@@ -82,7 +82,7 @@ int main(void)
                 creative_mode();
                 break;
             case 2:
-                play_mode();
+                mode_jeu();
                 break;
             case 0:
                 printf("Au revoir !\n");

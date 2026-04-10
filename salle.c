@@ -14,7 +14,7 @@ void set_RoomId(Room *R, int id){
 
 
 
-void create(Room *R, int n, int m){
+void initialiser_salle(Room *R, int n, int m){
     
     int i, j;
     R->height = n;
@@ -74,18 +74,18 @@ void create(Room *R, int n, int m){
 }
 
 
-void modificate(char** s, int n, int m){
+void modifier(char** s, int n, int m){
     (void)s;
     (void)n;
     (void)m;
 }
 
 
-void delete(char** s){
+void supprimer(char** s){
     (void)s;
 }
 
-void show_room(Room *R){
+void afficher_salle(Room *R){
     
     int i, j;
     for(i = 0; i < R->height; i += 1){
@@ -98,7 +98,7 @@ void show_room(Room *R){
     //freeR(R);
 }
 
-void configure_room_doors(Room *room, bool north, bool east, bool south, bool west) {
+void configurer_portes_salle(Room *room, bool north, bool east, bool south, bool west) {
     if (!room) return;
     int midW = room->width / 2;
     int midH = room->height / 2;
@@ -119,7 +119,7 @@ void configure_room_doors(Room *room, bool north, bool east, bool south, bool we
     if (east)  room->grid[midH][room->width - 1] = 'D';
 }
 
-void freeRoom(Room *R) {
+void liberer_salle_simple(Room *R) {
     if (!R) return;
     if (R->grid) {
         for (int i = 0; i < R->height; ++i) {
@@ -131,7 +131,7 @@ void freeRoom(Room *R) {
 
 // ==================== Floor Generation ====================
 
-bool generate_and_display_floor(int floor_num,
+bool generer_et_afficher_etage(int floor_num,
                                const char *rooms_template_file,
                                const char *monsters_file,
                                const char *items_file) {
@@ -171,13 +171,13 @@ bool generate_and_display_floor(int floor_num,
         else if (i == 13) room_type = "BONUS ITEM ROOM";
 
         printf("\n--- Room #%zu (%s) - ID: %d ---\n", i, room_type, rooms[i].id);
-        show_room(&rooms[i]);
+        afficher_salle(&rooms[i]);
     }
 
     printf("\n========== FLOOR %d COMPLETE ==========\n", floor_num);
 
     // Cleanup
-    free_rooms(rooms, room_count);
+    liberer_salles(rooms, room_count);
     free_room_templates(templates, template_count);
 
     return true;

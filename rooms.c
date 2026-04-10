@@ -214,21 +214,21 @@ static void create_spawner_room(Room *room, int id) {
 }
 
 // Fonction personnalisée (nmx + largeur variables)
-void create_spawner_room_custom(Room *room, int id, int height, int width) {
+void creer_salle_spawn_personnalisee(Room *room, int id, int height, int width) {
     initialize_room(room, id, height, width);
     room->grid[height / 2][width / 2] = 'P';
 }
 
-void create_normal_room_custom(Room *room, int id, int height, int width) {
+void creer_salle_normale_personnalisee(Room *room, int id, int height, int width) {
     initialize_room(room, id, height, width);
 }
 
-void create_item_room_custom(Room *room, int id, int height, int width, char item_code) {
+void creer_salle_objet_personnalisee(Room *room, int id, int height, int width, char item_code) {
     initialize_room(room, id, height, width);
     room->grid[height / 2][width / 2] = item_code;
 }
 
-void create_boss_room_custom(Room *room, int id, int height, int width) {
+void creer_salle_boss_personnalisee(Room *room, int id, int height, int width) {
     initialize_room(room, id, height, width);
     // boss avec porte en haut (par défaut) et centre vide
     room->grid[0][width / 2] = 'D';
@@ -456,7 +456,7 @@ bool generate_floor(int floor_num,
     return true;
 }
 
-void free_rooms(Room *rooms, size_t count) {
+void liberer_salles(Room *rooms, size_t count) {
     if (!rooms) return;
     for (size_t i = 0; i < count; ++i) {
         if (rooms[i].grid) {

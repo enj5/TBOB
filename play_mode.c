@@ -19,7 +19,7 @@ typedef struct {
 
 #define MAX_PROJECTILES 10
 
-static int load_monsters(const char *filename, Entity monsters[], int max_monsters)
+static int charger_monstres(const char *filename, Entity monsters[], int max_monsters)
 {
     FILE *f = fopen(filename, "r");
     if (!f)
@@ -62,7 +62,7 @@ static int load_monsters(const char *filename, Entity monsters[], int max_monste
     return count;
 }
 
-static void afficher_minimap(int layout[6][5], int current_room)
+static void afficher_minimap(int layout[6][5], int salle_actuelle)
 {
     printf("\nMinicarte (grille 5x6) :\n\n");
     for (int y = 0; y < 6; ++y)
@@ -74,7 +74,7 @@ static void afficher_minimap(int layout[6][5], int current_room)
             {
                 printf(" . ");
             }
-            else if (layout[y][x] == current_room)
+            else if (layout[y][x] == salle_actuelle)
             {
                 printf(" P ");
             }
@@ -87,16 +87,16 @@ static void afficher_minimap(int layout[6][5], int current_room)
     }
 }
 
-static void render_room(const Room *room, int width, int height, Projectile projectiles[], int num_projectiles)
+static void rendre_salle(const Room *room, int largeur, int hauteur, Projectile projectiles[], int nombre_projectiles)
 {
     // Affiche la salle et superpose les projectiles actifs.
-    for (int y = 0; y < height; ++y)
+    for (int y = 0; y < hauteur; ++y)
     {
-        for (int x = 0; x < width; ++x)
+        for (int x = 0; x < largeur; ++x)
         {
             char c = room->grid[y][x];
             bool has_projectile = false;
-            for (int p = 0; p < num_projectiles; ++p)
+            for (int p = 0; p < nombre_projectiles; ++p)
             {
                 if (projectiles[p].active && projectiles[p].x == x && projectiles[p].y == y)
                 {
@@ -117,10 +117,10 @@ static void render_room(const Room *room, int width, int height, Projectile proj
     }
 }
 
-static bool update_projectiles(Room *room, int width, int height, Projectile projectiles[], int *num_projectiles)
+static bool mettre_a_jour_projectiles(Room *room, int largeur, int hauteur, Projectile projectiles[], int *nombre_projectiles)
 {
     bool any_moved = false;
-    for (int p = 0; p < *num_projectiles; ++p)
+    for (int p = 0; p < *nombre_projectiles; ++p)
     {
         if (!projectiles[p].active)
         {
@@ -128,7 +128,7 @@ static bool update_projectiles(Room *room, int width, int height, Projectile pro
         }
         int nx = projectiles[p].x + projectiles[p].dx;
         int ny = projectiles[p].y + projectiles[p].dy;
-        if (nx < 0 || nx >= width || ny < 0 || ny >= height)
+        if (nx < 0 || nx >= largeur || ny < 0 || ny >= hauteur)
         {
             projectiles[p].active = false; // sort de la carte
             continue;
@@ -159,68 +159,68 @@ static bool update_projectiles(Room *room, int width, int height, Projectile pro
     }
     // Compresse le tableau de projectiles en supprimant les inactifs
     int active_count = 0;
-    for (int p = 0; p < *num_projectiles; ++p)
+    for (int p = 0; p < *nombre_projectiles; ++p)
     {
         if (projectiles[p].active)
         {
             projectiles[active_count++] = projectiles[p];
         }
     }
-    *num_projectiles = active_count;
+    *nombre_projectiles = active_count;
     return any_moved;
 }
 
-static int sign_int(int value)
+static int signe_entier(int value)
 {
     if (value > 0) return 1;
     if (value < 0) return -1;
     return 0;
 }
 
-static bool can_monster_enter(char tile)
+static bool peut_monstre_entrer(char tile)
 {
     return tile == ' ';
 }
 
-static bool apply_monster_attacks(const Room *room, int width, int height, int player_x, int player_y, int *player_hp, int *attack_cooldown)
+static bool appliquer_attaques_monstres(const Room *room, int largeur, int hauteur, int joueur_x, int joueur_y, int *pv_joueur, int *delai_attaque_monstre)
 {
     const int damage = 1;
     bool attacked = false;
     const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
 
-    (*attack_cooldown)++;
+    (*delai_attaque_monstre)++;
 
-    if (*attack_cooldown >= 10)
+    if (*delai_attaque_monstre >= 10)
     {
         for (int i = 0; i < 4; ++i)
         {
-            int nx = player_x + dirs[i][0];
-            int ny = player_y + dirs[i][1];
-            if (nx < 0 || nx >= width || ny < 0 || ny >= height)
+            int nx = joueur_x + dirs[i][0];
+            int ny = joueur_y + dirs[i][1];
+            if (nx < 0 || nx >= largeur || ny < 0 || ny >= hauteur)
             {
                 continue;
             }
             if (room->grid[ny][nx] == 'M')
             {
-                *player_hp -= damage;
+                *pv_joueur -= damage;
                 attacked = true;
-                *attack_cooldown = 0;
+                *delai_attaque_monstre = 0;
                 break;
             }
         }
     }
 
-    if (*player_hp < 0)
+    if (*pv_joueur < 0)
     {
-        *player_hp = 0;
+        *pv_joueur = 0;
     }
 
     return attacked;
 }
 
-static bool update_monsters(Room *room, int width, int height, int player_x, int player_y, bool do_move)
+static bool mettre_a_jour_monstres(Room *room, int largeur, int hauteur, int joueur_x, int joueur_y, bool bouger)
 {
-    if (!do_move)
+    if (!bouger)
     {
         return false;
     }
@@ -229,37 +229,37 @@ static bool update_monsters(Room *room, int width, int height, int player_x, int
     char next_grid[20][20];
     bool any_moved = false;
 
-    for (int y = 0; y < height; ++y)
+    for (int y = 0; y < hauteur; ++y)
     {
-        for (int x = 0; x < width; ++x)
+        for (int x = 0; x < largeur; ++x)
         {
             original[y][x] = room->grid[y][x];
             next_grid[y][x] = room->grid[y][x];
         }
     }
 
-    for (int y = 0; y < height; ++y)
+    for (int y = 0; y < hauteur; ++y)
     {
-        for (int x = 0; x < width; ++x)
+        for (int x = 0; x < largeur; ++x)
         {
             if (original[y][x] != 'M')
             {
                 continue;
             }
 
-            int dx = sign_int(player_x - x);
-            int dy = sign_int(player_y - y);
+            int dx = signe_entier(joueur_x - x);
+            int dy = signe_entier(joueur_y - y);
             int nx = x;
             int ny = y;
             bool moved = false;
 
-            int dist_x = abs(player_x - x);
-            int dist_y = abs(player_y - y);
+            int dist_x = abs(joueur_x - x);
+            int dist_y = abs(joueur_y - y);
 
             if (dist_x >= dist_y && dx != 0)
             {
                 int tx = x + dx;
-                if (tx >= 0 && tx < width && can_monster_enter(original[y][tx]) && next_grid[y][tx] == ' ')
+                if (tx >= 0 && tx < largeur && peut_monstre_entrer(original[y][tx]) && next_grid[y][tx] == ' ')
                 {
                     nx = tx;
                     moved = true;
@@ -269,7 +269,7 @@ static bool update_monsters(Room *room, int width, int height, int player_x, int
             if (!moved && dy != 0)
             {
                 int ty = y + dy;
-                if (ty >= 0 && ty < height && can_monster_enter(original[ty][x]) && next_grid[ty][x] == ' ')
+                if (ty >= 0 && ty < hauteur && peut_monstre_entrer(original[ty][x]) && next_grid[ty][x] == ' ')
                 {
                     ny = ty;
                     moved = true;
@@ -279,7 +279,7 @@ static bool update_monsters(Room *room, int width, int height, int player_x, int
             if (!moved && dist_x < dist_y && dx != 0)
             {
                 int tx = x + dx;
-                if (tx >= 0 && tx < width && can_monster_enter(original[y][tx]) && next_grid[y][tx] == ' ')
+                if (tx >= 0 && tx < largeur && peut_monstre_entrer(original[y][tx]) && next_grid[y][tx] == ' ')
                 {
                     nx = tx;
                     moved = true;
@@ -302,9 +302,9 @@ static bool update_monsters(Room *room, int width, int height, int player_x, int
         }
     }
 
-    for (int y = 0; y < height; ++y)
+    for (int y = 0; y < hauteur; ++y)
     {
-        for (int x = 0; x < width; ++x)
+        for (int x = 0; x < largeur; ++x)
         {
             room->grid[y][x] = next_grid[y][x];
         }
@@ -313,12 +313,12 @@ static bool update_monsters(Room *room, int width, int height, int player_x, int
     return any_moved;
 }
 
-int play_mode(void)
+int mode_jeu(void)
 {
     printf("=== TBOB Playable Prototype ===\n\n");
     printf("Contrôles : z/s/q/d ou w/s/a/d, x pour quitter.\n\n");
 
-    int height = 9, width = 15;
+    int hauteur = 9, largeur = 15;
 
     /*
     do {
@@ -338,7 +338,7 @@ int play_mode(void)
     int i = 0;
 
 
-    create_spawner_room_custom(&rooms[0], 0, height, width);
+    creer_salle_spawn_personnalisee(&rooms[0], 0, hauteur, largeur);
 
 
     FILE* fich = fopen("salles.rtbob", "r"); // Ouverture du fichier en lecture 
@@ -356,20 +356,20 @@ int play_mode(void)
 
 /*
     for (int i = 1; i <= 10; ++i) {
-        create_normal_room_custom(&rooms[i], i, height, width);
+        creer_salle_normale_personnalisee(&rooms[i], i, hauteur, largeur);
     }
 
 */
 
-    create_item_room_custom(&rooms[11], 11, height, width, 'I');
-    create_boss_room_custom(&rooms[12], 12, height, width);
-    create_item_room_custom(&rooms[13], 13, height, width, 'H');
+    creer_salle_objet_personnalisee(&rooms[11], 11, hauteur, largeur, 'I');
+    creer_salle_boss_personnalisee(&rooms[12], 12, hauteur, largeur);
+    creer_salle_objet_personnalisee(&rooms[13], 13, hauteur, largeur, 'H');
     
 
     Entity monster_types[10];
-    int num_monster_types = load_monsters("monstres.mtbob", monster_types, 10);
-    bool visited[14] = {false};
-    visited[0] = true; // salle spawner déjà visitée
+    int num_monster_types = charger_monstres("monstres.mtbob", monster_types, 10);
+    bool visitee[14] = {false};
+    visitee[0] = true; // salle spawner déjà visitée
 
     typedef struct { int x, y; } Coord;
     Coord pool[29];
@@ -458,189 +458,189 @@ int play_mode(void)
         adjacency[i][1] = (x < 4 && layout[y][x+1] != -1) ? layout[y][x+1] : -1;
         adjacency[i][2] = (y < 5 && layout[y+1][x] != -1) ? layout[y+1][x] : -1;
         adjacency[i][3] = (x > 0 && layout[y][x-1] != -1) ? layout[y][x-1] : -1;
-        configure_room_doors(&rooms[i],
+        configurer_portes_salle(&rooms[i],
                              adjacency[i][0] != -1,
                              adjacency[i][1] != -1,
                              adjacency[i][2] != -1,
                              adjacency[i][3] != -1);
     }
 
-    int current_room = 0;
-    int player_x = width / 2;
-    int player_y = height / 2;
-    int player_hp = 10;
-    int monster_tick = 0;
-    int monster_attack_cooldown = 0;
+    int salle_actuelle = 0;
+    int joueur_x = largeur / 2;
+    int joueur_y = hauteur / 2;
+    int pv_joueur = 10;
+    int tick_monstre = 0;
+    int delai_attaque_monstre = 0;
 
     Projectile projectiles[MAX_PROJECTILES];
-    int num_projectiles = 0;
+    int nombre_projectiles = 0;
 
-    bool playing = true;
-    bool needs_render = true; // contrôle du rendu pour éviter le scintillement
-    while (playing)
+    bool en_jeu = true;
+    bool besoin_rendu = true; // contrôle du rendu pour éviter le scintillement
+    while (en_jeu)
     {
-        bool has_input = false;
+        bool a_entree = false;
         // Gestion de l'entrée sans bloquer l'exécution
-        int key = -1;
+        int touche = -1;
         if (kbhit())
         {
-            key = getch();
-            if (key == 0 || key == 224)
+            touche = getch();
+            if (touche == 0 || touche == 224)
             {
-                key = getch(); // touche spéciale, par exemple flèche
+                touche = getch(); // touche spéciale, par exemple flèche
             }
-            has_input = true;
+            a_entree = true;
         }
 
-        if (key == 'x' || key == 'X')
+        if (touche == 'x' || touche == 'X')
         {
-            playing = false; // quitter le mode de jeu
+            en_jeu = false; // quitter le mode de jeu
             continue;
         }
 
         int dx = 0, dy = 0;
-        bool shooting = false;
+        bool tir = false;
 
-        if (key == 72)
+        if (touche == 72)
         {
-            shooting = true;
+            tir = true;
             dy = -1;
         } // up arrow
-        else if (key == 80)
+        else if (touche == 80)
         {
-            shooting = true;
+            tir = true;
             dy = 1;
         } // down
-        else if (key == 75)
+        else if (touche == 75)
         {
-            shooting = true;
+            tir = true;
             dx = -1;
         } // left
-        else if (key == 77)
+        else if (touche == 77)
         {
-            shooting = true;
+            tir = true;
             dx = 1;
         } // right
-        else if (key == 'z' || key == 'w')
+        else if (touche == 'z' || touche == 'w')
         {
             dy = -1;
         }
-        else if (key == 's')
+        else if (touche == 's')
         {
             dy = 1;
         }
-        else if (key == 'q' || key == 'a')
+        else if (touche == 'q' || touche == 'a')
         {
             dx = -1;
         }
-        else if (key == 'd')
+        else if (touche == 'd')
         {
             dx = 1;
         }
 
-        bool moved = false;
-        if (shooting && num_projectiles < MAX_PROJECTILES)
+        bool deplace = false;
+        if (tir && nombre_projectiles < MAX_PROJECTILES)
         {
             // Tir non bloquant : on ajoute le projectile à la liste et on continue
-            projectiles[num_projectiles].x = player_x;
-            projectiles[num_projectiles].y = player_y;
-            projectiles[num_projectiles].dx = dx;
-            projectiles[num_projectiles].dy = dy;
-            projectiles[num_projectiles].active = true;
-            num_projectiles++;
-            needs_render = true;
+            projectiles[nombre_projectiles].x = joueur_x;
+            projectiles[nombre_projectiles].y = joueur_y;
+            projectiles[nombre_projectiles].dx = dx;
+            projectiles[nombre_projectiles].dy = dy;
+            projectiles[nombre_projectiles].active = true;
+            nombre_projectiles++;
+            besoin_rendu = true;
         }
-        else if (!shooting && (dx != 0 || dy != 0))
+        else if (!tir && (dx != 0 || dy != 0))
         {
             // Déplacement du joueur
-            int nx = player_x + dx;
-            int ny = player_y + dy;
-            if (nx >= 0 && ny >= 0 && nx < width && ny < height)
+            int nx = joueur_x + dx;
+            int ny = joueur_y + dy;
+            if (nx >= 0 && ny >= 0 && nx < largeur && ny < hauteur)
             {
-                char cible = rooms[current_room].grid[ny][nx];
+                char cible = rooms[salle_actuelle].grid[ny][nx];
                 if (cible != 'W' && cible != 'R')
                 {
                     if (cible == 'D')
                     {
-                        int dir = -1;
-                        int midW = width / 2;
-                        int midH = height / 2;
+                        int direction = -1;
+                        int milieu_largeur = largeur / 2;
+                        int milieu_hauteur = hauteur / 2;
 
-                        if (ny == 0 && nx == midW)
+                        if (ny == 0 && nx == milieu_largeur)
                         {
-                            dir = 0;
+                            direction = 0;
                         }
-                        else if (nx == width - 1 && ny == midH)
+                        else if (nx == largeur - 1 && ny == milieu_hauteur)
                         {
-                            dir = 1;
+                            direction = 1;
                         }
-                        else if (ny == height - 1 && nx == midW)
+                        else if (ny == hauteur - 1 && nx == milieu_largeur)
                         {
-                            dir = 2;
+                            direction = 2;
                         }
-                        else if (nx == 0 && ny == midH)
+                        else if (nx == 0 && ny == milieu_hauteur)
                         {
-                            dir = 3;
+                            direction = 3;
                         }
 
-                        if (dir != -1)
+                        if (direction != -1)
                         {
-                            int next_room = adjacency[current_room][dir];
-                            if (next_room != -1)
+                            int salle_suivante = adjacency[salle_actuelle][direction];
+                            if (salle_suivante != -1)
                             {
-                                rooms[current_room].grid[player_y][player_x] = 'D';
-                                current_room = next_room;
-                                monster_attack_cooldown = 0;
-                                if (dir == 0)
+                                rooms[salle_actuelle].grid[joueur_y][joueur_x] = 'D';
+                                salle_actuelle = salle_suivante;
+                                delai_attaque_monstre = 0;
+                                if (direction == 0)
                                 {
-                                    player_y = height - 2;
-                                    player_x = midW;
+                                    joueur_y = hauteur - 2;
+                                    joueur_x = milieu_largeur;
                                 }
-                                else if (dir == 1)
+                                else if (direction == 1)
                                 {
-                                    player_y = midH;
-                                    player_x = 1;
+                                    joueur_y = milieu_hauteur;
+                                    joueur_x = 1;
                                 }
-                                else if (dir == 2)
+                                else if (direction == 2)
                                 {
-                                    player_y = 1;
-                                    player_x = midW;
+                                    joueur_y = 1;
+                                    joueur_x = milieu_largeur;
                                 }
-                                else if (dir == 3)
+                                else if (direction == 3)
                                 {
-                                    player_y = midH;
-                                    player_x = width - 2;
+                                    joueur_y = milieu_hauteur;
+                                    joueur_x = largeur - 2;
                                 }
-                                rooms[current_room].grid[player_y][player_x] = 'P';
-                                moved = true;
+                                rooms[salle_actuelle].grid[joueur_y][joueur_x] = 'P';
+                                deplace = true;
                                 // Spawn de monstres si première visite d'une salle normale
-                                if (!visited[current_room] && current_room >= 1 && current_room <= 10)
+                                if (!visitee[salle_actuelle] && salle_actuelle >= 1 && salle_actuelle <= 10)
                                 {
                                     
-                                    visited[current_room] = true;
-                                    int num_monsters = rand() % 6 + 1;
-                                    int num_types = rand() % 2 + 1;
-                                    int selected_types[2];
-                                    for (int t = 0; t < num_types; ++t)
+                                    visitee[salle_actuelle] = true;
+                                    int nombre_monstres = rand() % 6 + 1;
+                                    int nombre_types = rand() % 2 + 1;
+                                    int types_selectionnes[2];
+                                    for (int t = 0; t < nombre_types; ++t)
                                     {
-                                        selected_types[t] = rand() % num_monster_types;
+                                        types_selectionnes[t] = rand() % num_monster_types;
                                     }
-                                    for (int m = 0; m < num_monsters; ++m)
+                                    for (int m = 0; m < nombre_monstres; ++m)
                                     {
-                                        int type = selected_types[rand() % num_types];
+                                        int type = types_selectionnes[rand() % nombre_types];
                                         // Trouver une position aléatoire valide
-                                        int attempts = 0;
-                                        bool placed = false;
-                                        while (attempts < 100 && !placed)
+                                        int tentatives = 0;
+                                        bool place = false;
+                                        while (tentatives < 100 && !place)
                                         {
-                                            int x = rand() % width;
-                                            int y = rand() % height;
-                                            if (rooms[current_room].grid[y][x] == ' ')
+                                            int x = rand() % largeur;
+                                            int y = rand() % hauteur;
+                                            if (rooms[salle_actuelle].grid[y][x] == ' ')
                                             {
-                                                rooms[current_room].grid[y][x] = 'M';
-                                                placed = true;
+                                                rooms[salle_actuelle].grid[y][x] = 'M';
+                                                place = true;
                                             }
-                                            attempts++;
+                                            tentatives++;
                                         }
                                     }
                                 }
@@ -649,47 +649,47 @@ int play_mode(void)
                     }
                     else
                     {
-                        rooms[current_room].grid[player_y][player_x] = ' ';
-                        player_x = nx;
-                        player_y = ny;
-                        rooms[current_room].grid[player_y][player_x] = 'P';
-                        moved = true;
+                        rooms[salle_actuelle].grid[joueur_y][joueur_x] = ' ';
+                        joueur_x = nx;
+                        joueur_y = ny;
+                        rooms[salle_actuelle].grid[joueur_y][joueur_x] = 'P';
+                        deplace = true;
                     }
                 }
             }
         }
 
         // Met à jour la position de tous les projectiles actifs
-        int prev_num = num_projectiles;
-        bool projectiles_moved = update_projectiles(&rooms[current_room], width, height, projectiles, &num_projectiles);
+        int nombre_precedent = nombre_projectiles;
+        bool projectiles_deplaces = mettre_a_jour_projectiles(&rooms[salle_actuelle], largeur, hauteur, projectiles, &nombre_projectiles);
 
-        bool attacked = apply_monster_attacks(&rooms[current_room], width, height, player_x, player_y, &player_hp, &monster_attack_cooldown);
-        bool do_move = (monster_tick % 5) == 0;
-        bool monsters_moved = update_monsters(&rooms[current_room], width, height, player_x, player_y, do_move);
-        monster_tick++;
+        bool attaque = appliquer_attaques_monstres(&rooms[salle_actuelle], largeur, hauteur, joueur_x, joueur_y, &pv_joueur, &delai_attaque_monstre);
+        bool bouger = (tick_monstre % 5) == 0;
+        bool monstres_deplaces = mettre_a_jour_monstres(&rooms[salle_actuelle], largeur, hauteur, joueur_x, joueur_y, bouger);
+        tick_monstre++;
 
-        if (player_hp <= 0)
+        if (pv_joueur <= 0)
         {
-            playing = false;
+            en_jeu = false;
             printf("\n¡Has sido derrotado por los monstruos!\n");
         }
 
-        if (num_projectiles != prev_num || moved || monsters_moved || attacked || projectiles_moved || has_input)
+        if (nombre_projectiles != nombre_precedent || deplace || monstres_deplaces || attaque || projectiles_deplaces || a_entree)
         {
-            needs_render = true; // redessine seulement lorsqu'il y a un changement
+            besoin_rendu = true; // redessine seulement lorsqu'il y a un changement
         }
 
         // Rendu conditionnel pour éviter le scintillement constant
-        if (needs_render)
+        if (besoin_rendu)
         {
             system("cls");
-            printf("Salle actuelle : %d / 13\n", current_room);
-            printf("HP joueur : %d\n", player_hp);
-            render_room(&rooms[current_room], width, height, projectiles, num_projectiles);
-            afficher_minimap(layout, current_room);
+            printf("Salle actuelle : %d / 13\n", salle_actuelle);
+            printf("HP joueur : %d\n", pv_joueur);
+            rendre_salle(&rooms[salle_actuelle], largeur, hauteur, projectiles, nombre_projectiles);
+            afficher_minimap(layout, salle_actuelle);
             printf("\nMouvement : z/w/up, s/down, q/a/gauche, d/droite\n");
             printf("Tir : fleches directionnelles, x pour quitter\n");
-            needs_render = false;
+            besoin_rendu = false;
         }
 
         Sleep(100); // ~10 FPS

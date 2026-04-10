@@ -1,6 +1,6 @@
 #ifndef PLAY_MODE_H
 #define PLAY_MODE_H
 
-int play_mode(void);
+int mode_jeu(void);
 
 #endif // PLAY_MODE_H
