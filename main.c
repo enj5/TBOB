@@ -21,25 +21,35 @@ static bool read_int(const char *prompt, int *out, int min, int max)
     long val;
     char *end;
 
-    if (!prompt || !out || min > max) return false;
+    if (!prompt || !out || min > max)
+    {
+        return false;
+    }
 
-    while (true) {
+    while (true)
+    {
         printf("%s", prompt);
-        if (!fgets(buffer, sizeof(buffer), stdin)) return false;
+        if (!fgets(buffer, sizeof(buffer), stdin))
+        {
+            return false;
+        }
         trim_newline(buffer);
 
-        if (buffer[0] == '\0') {
+        if (buffer[0] == '\0')
+        {
             printf("Entrée vide. Réessayez.\n");
             continue;
         }
 
         val = strtol(buffer, &end, 10);
-        if (end == buffer || *end != '\0') {
+        if (end == buffer || *end != '\0')
+        {
             printf("Entrée invalide. Entrez un entier.\n");
             continue;
         }
 
-        if (val < min || val > max) {
+        if (val < min || val > max)
+        {
             printf("Hors de portée (%d-%d).\n", min, max);
             continue;
         }
@@ -52,19 +62,22 @@ static bool read_int(const char *prompt, int *out, int min, int max)
 
 int main(void)
 {
-    while (true) {
+    while (true)
+    {
         printf("=== TBOB MENU ===\n");
         printf("1) Creative mode\n");
         printf("2) Play mode\n");
         printf("0) Quitter\n");
 
         int choix = 0;
-        if (!read_int("Choix : ", &choix, 0, 2)) {
+        if (!read_int("Choix : ", &choix, 0, 2))
+        {
             printf("Erreur de lecture.\n");
             continue;
         }
 
-        switch (choix) {
+        switch (choix)
+        {
             case 1:
                 creative_mode();
                 break;
