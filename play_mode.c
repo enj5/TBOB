@@ -1,6 +1,7 @@
 ﻿#include "play_mode.h"
 #include "crud1_salle.h"
 #include "salle.h"
+#include "rooms.h"
 #include "structs.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,50 +18,26 @@ typedef struct {
     bool active;   // actif si il continue de voler
 } Projectile;
 
-#define MAX_PROJECTILES 10
+typedef struct { int x, y; } Coord;
 
-static int charger_monstres(const char *filename, Entity monsters[], int max_monsters)
-{
-    FILE *f = fopen(filename, "r");
-    if (!f)
-    {
-        return 0;
-    }
-    int count;
-    fscanf(f, "{%d}\n", &count);
-    for (int i = 0; i < count && i < max_monsters; ++i)
-    {
-        fscanf(f, "---\n");
-        fscanf(f, "name=%[^\n]\n", monsters[i].name);
-        fscanf(f, "hpMax=%f\n", &monsters[i].hpMax);
-        monsters[i].shoot = 0;
-        monsters[i].ss = 0;
-        monsters[i].flight = 0;
-        monsters[i].dmg = 10.0f; // valeur par défaut
-        char line[256];
-        while (fgets(line, sizeof(line), f))
-        {
-            if (strstr(line, "---"))
-            {
-                break;
-            }
-            if (strstr(line, "shoot=1"))
-            {
-                monsters[i].shoot = 1;
-            }
-            else if (strstr(line, "ss=1"))
-            {
-                monsters[i].ss = 1;
-            }
-            else if (strstr(line, "flight=1"))
-            {
-                monsters[i].flight = 1;
-            }
-        }
-    }
-    fclose(f);
-    return count;
-}
+typedef struct {
+    bool active;
+    int etage;
+    int hp;
+    int x;
+    int y;
+    bool can_move;
+    bool can_shoot;
+    int shoot_type; // 1 = directional, 2 = cross
+    int shoot_timer;
+    int shoot_interval;
+} Boss;
+
+static Boss boss;
+
+static int signe_entier(int value);
+
+#define MAX_PROJECTILES 10
 
 static void afficher_minimap(int layout[6][5], int salle_actuelle)
 {
@@ -78,12 +55,190 @@ static void afficher_minimap(int layout[6][5], int salle_actuelle)
             {
                 printf(" P ");
             }
+            else if (layout[y][x] == 12)
+            {
+                printf("%c ", (unsigned char)178);
+            }
+            else if (layout[y][x] == 11 || layout[y][x] == 13)
+            {
+                printf("%c ", (unsigned char)170);
+            }
             else
             {
                 printf(" * ");
             }
         }
         printf("\n");
+    }
+}
+
+static void clear_previous_boss_marker(Room *room)
+{
+    for (int y = 0; y < room->height; ++y)
+    {
+        for (int x = 0; x < room->width; ++x)
+        {
+            if (room->grid[y][x] == 'B')
+            {
+                room->grid[y][x] = ' ';
+            }
+        }
+    }
+}
+
+static void initialiser_boss(Room *room, int floor_index)
+{
+    boss.active = true;
+    boss.etage = floor_index + 1;
+    boss.shoot_timer = 0;
+    boss.shoot_interval = 15;
+    boss.can_move = false;
+    boss.can_shoot = true;
+
+    clear_previous_boss_marker(room);
+
+    int midX = room->width / 2;
+    int midY = room->height / 2;
+
+    if (floor_index == 0)
+    {
+        boss.hp = 100;
+        boss.can_move = true;
+        boss.shoot_type = 1;
+        boss.x = midX;
+        boss.y = midY;
+    }
+    else if (floor_index == 1)
+    {
+        boss.hp = 300;
+        boss.can_move = false;
+        boss.shoot_type = 1;
+        boss.x = midX;
+        boss.y = 1;
+    }
+    else
+    {
+        boss.hp = 450;
+        boss.can_move = false;
+        boss.shoot_type = 2;
+        boss.x = midX;
+        boss.y = midY;
+    }
+
+    room->grid[boss.y][boss.x] = 'B';
+}
+
+static bool boss_hit(Room *room, int x, int y, int damage)
+{
+    if (!boss.active)
+        return false;
+    if (boss.x != x || boss.y != y)
+        return false;
+    if (room->grid[y][x] != 'B')
+        return false;
+
+    boss.hp -= damage;
+    printf("Projectile a touche le boss de l'etage %d (%d HP restants).\n", boss.etage, boss.hp > 0 ? boss.hp : 0);
+    if (boss.hp <= 0)
+    {
+        boss.active = false;
+        room->grid[y][x] = 'I';
+        printf("Le boss est mort et laisse tomber un I.\n");
+    }
+    return true;
+}
+
+static bool add_projectile(Projectile projectiles[], int *nombre_projectiles, int x, int y, int dx, int dy)
+{
+    if (*nombre_projectiles >= MAX_PROJECTILES)
+        return false;
+
+    projectiles[*nombre_projectiles].x = x;
+    projectiles[*nombre_projectiles].y = y;
+    projectiles[*nombre_projectiles].dx = dx;
+    projectiles[*nombre_projectiles].dy = dy;
+    projectiles[*nombre_projectiles].active = true;
+    (*nombre_projectiles)++;
+    return true;
+}
+
+static void boss_shoot(int joueur_x, int joueur_y, Projectile projectiles[], int *nombre_projectiles)
+{
+    if (!boss.active || !boss.can_shoot)
+        return;
+
+    boss.shoot_timer++;
+    if (boss.shoot_timer < boss.shoot_interval)
+        return;
+
+    boss.shoot_timer = 0;
+
+    if (boss.shoot_type == 1)
+    {
+        int dx = signe_entier(joueur_x - boss.x);
+        int dy = signe_entier(joueur_y - boss.y);
+
+        if (dx == 0 && dy == 0)
+            return;
+
+        add_projectile(projectiles, nombre_projectiles, boss.x, boss.y, dx, dy);
+        printf("Le boss tire un projectile vers le joueur.\n");
+    }
+    else if (boss.shoot_type == 2)
+    {
+        add_projectile(projectiles, nombre_projectiles, boss.x, boss.y, 1, 0);
+        add_projectile(projectiles, nombre_projectiles, boss.x, boss.y, -1, 0);
+        add_projectile(projectiles, nombre_projectiles, boss.x, boss.y, 0, 1);
+        add_projectile(projectiles, nombre_projectiles, boss.x, boss.y, 0, -1);
+        printf("Athina tire 4 projectiles en croix.\n");
+    }
+}
+
+static void boss_move(int joueur_x, int joueur_y, Room *room)
+{
+    if (!boss.active || !boss.can_move)
+        return;
+
+    int dx = signe_entier(joueur_x - boss.x);
+    int dy = signe_entier(joueur_y - boss.y);
+    int nx = boss.x;
+    int ny = boss.y;
+    bool moved = false;
+
+    int dist_x = abs(joueur_x - boss.x);
+    int dist_y = abs(joueur_y - boss.y);
+
+    if (dist_x >= dist_y && dx != 0)
+    {
+        if (boss.x + dx >= 0 && boss.x + dx < room->width && boss.y >= 0 && boss.y < room->height && room->grid[boss.y][boss.x + dx] == ' ')
+        {
+            nx = boss.x + dx;
+            moved = true;
+        }
+    }
+    if (!moved && dy != 0)
+    {
+        if (boss.y + dy >= 0 && boss.y + dy < room->height && boss.x >= 0 && boss.x < room->width && room->grid[boss.y + dy][boss.x] == ' ')
+        {
+            ny = boss.y + dy;
+            moved = true;
+        }
+    }
+    if (!moved && dist_x < dist_y && dx != 0)
+    {
+        if (boss.x + dx >= 0 && boss.x + dx < room->width && room->grid[boss.y][boss.x + dx] == ' ')
+        {
+            nx = boss.x + dx;
+            moved = true;
+        }
+    }
+
+    if (moved)
+    {
+        room->grid[boss.y][boss.x] = ' ';
+        boss.x = nx;
+        boss.y = ny;
+        room->grid[boss.y][boss.x] = 'B';
     }
 }
 
@@ -145,6 +300,13 @@ static bool mettre_a_jour_projectiles(Room *room, int largeur, int hauteur, Proj
             {
                 printf("Projectile a frappe un obstacle '%c' en (%d,%d).\n", cible, nx, ny);
             }
+            else if (cible == 'B')
+            {
+                if (!boss_hit(room, nx, ny, 10))
+                {
+                    printf("Projectile a touche un boss inconnu en (%d,%d).\n", nx, ny);
+                }
+            }
             else
             {
                 printf("Projectile a touche '%c' en (%d,%d).\n", cible, nx, ny);
@@ -180,6 +342,107 @@ static int signe_entier(int value)
 static bool peut_monstre_entrer(char tile)
 {
     return tile == ' ';
+}
+
+static bool initialiser_plan_et_portes(Room *rooms, size_t room_count,
+                                      int layout[6][5],
+                                      Coord room_position[14],
+                                      int adjacency[14][4],
+                                      bool visitee[14])
+{
+    if (room_count != 14 || !rooms) {
+        return false;
+    }
+
+    Coord pool[29];
+    int idx = 0;
+    for (int y = 0; y < 6; ++y) {
+        for (int x = 0; x < 5; ++x) {
+            if (x == 2 && y == 2) continue;
+            pool[idx++] = (Coord){x, y};
+        }
+    }
+
+    srand((unsigned int)time(NULL));
+    for (int i = 28; i > 0; --i) {
+        int j = rand() % (i + 1);
+        Coord tmp = pool[i];
+        pool[i] = pool[j];
+        pool[j] = tmp;
+    }
+
+    for (int y = 0; y < 6; ++y)
+        for (int x = 0; x < 5; ++x)
+            layout[y][x] = -1;
+
+    room_position[0] = (Coord){2, 2};
+    layout[2][2] = 0;
+
+    bool used[6][5] = {0};
+    used[2][2] = true;
+
+    for (int i = 1; i < 14; ++i) {
+        Coord candidates[29];
+        int cand_count = 0;
+
+        for (int j = 0; j < 29; ++j) {
+            int px = pool[j].x;
+            int py = pool[j].y;
+            if (used[py][px]) continue;
+
+            bool has_neighbor = false;
+            if (py > 0 && used[py-1][px]) has_neighbor = true;
+            if (px < 4 && used[py][px+1]) has_neighbor = true;
+            if (py < 5 && used[py+1][px]) has_neighbor = true;
+            if (px > 0 && used[py][px-1]) has_neighbor = true;
+
+            if (has_neighbor) {
+                candidates[cand_count++] = pool[j];
+            }
+        }
+
+        Coord chosen;
+        if (cand_count > 0) {
+            chosen = candidates[rand() % cand_count];
+        } else {
+            Coord freepos[29];
+            int free_count = 0;
+            for (int j = 0; j < 29; ++j) {
+                int px = pool[j].x;
+                int py = pool[j].y;
+                if (!used[py][px]) freepos[free_count++] = pool[j];
+            }
+            if (free_count > 0)
+                chosen = freepos[rand() % free_count];
+            else
+                chosen = (Coord){0,0};
+        }
+
+        room_position[i] = chosen;
+        layout[chosen.y][chosen.x] = i;
+        used[chosen.y][chosen.x] = true;
+    }
+
+    for (int i = 0; i < 14; ++i) {
+        int x = room_position[i].x;
+        int y = room_position[i].y;
+        adjacency[i][0] = (y > 0 && layout[y-1][x] != -1) ? layout[y-1][x] : -1;
+        adjacency[i][1] = (x < 4 && layout[y][x+1] != -1) ? layout[y][x+1] : -1;
+        adjacency[i][2] = (y < 5 && layout[y+1][x] != -1) ? layout[y+1][x] : -1;
+        adjacency[i][3] = (x > 0 && layout[y][x-1] != -1) ? layout[y][x-1] : -1;
+        configurer_portes_salle(&rooms[i],
+                             adjacency[i][0] != -1,
+                             adjacency[i][1] != -1,
+                             adjacency[i][2] != -1,
+                             adjacency[i][3] != -1);
+    }
+
+    for (int i = 0; i < 14; ++i) {
+        visitee[i] = false;
+    }
+    visitee[0] = true;
+
+    return true;
 }
 
 static bool appliquer_attaques_monstres(const Room *room, int largeur, int hauteur, int joueur_x, int joueur_y, int *pv_joueur, int *delai_attaque_monstre)
@@ -319,151 +582,36 @@ int mode_jeu(void)
     printf("Contrôles : z/s/q/d ou w/s/a/d, x pour quitter.\n\n");
 
     int hauteur = 9, largeur = 15;
+    Room *rooms = NULL;
+    size_t room_count = 0;
+    int current_floor = 0;
+    const int max_floors = 3;
 
-    /*
-    do {
-        printf("Entrez la hauteur impaire des salles (9-19) : ");
-        if (scanf("%d", &height) != 1) { height = 0; continue; }
-    } while (height < 9 || height > 19 || (height % 2 == 0));
-
-    do {
-        printf("Entrez la largeur impaire des salles (9-19) : ");
-        if (scanf("%d", &width) != 1) { width = 0; continue; }
-    } while (width < 9 || width > 19 || (width % 2 == 0));
-    */
-
-
-    Room rooms[14];
-    int nS;
-    int i = 0;
-
-
-    creer_salle_spawn_personnalisee(&rooms[0], 0, hauteur, largeur);
-
-
-    FILE* fich = fopen("salles.rtbob", "r"); // Ouverture du fichier en lecture 
-            //Chargement du contenu dans le tableau des salles
-        if(fich != NULL){
-           
-            fscanf(fich, "{%d}\n", &nS); //Lecture nbre de salles
-            for(i = 1; i < nS+1; i++){
-                ReadInFile(&rooms[i], fich); //Lecture de chaque salle
-            }
-
-
-            fclose(fich);
-        }
-
-/*
-    for (int i = 1; i <= 10; ++i) {
-        creer_salle_normale_personnalisee(&rooms[i], i, hauteur, largeur);
+    if (!generate_floor(current_floor, NULL, 0, "monstres.mtbob", "items.itbob", &rooms, &room_count)) {
+        fprintf(stderr, "Erreur : impossible de generer le sol %d\n", current_floor);
+        return 1;
+    }
+    if (room_count != 14) {
+        fprintf(stderr, "Erreur : nombre de salles generees incorrect (%zu)\n", room_count);
+        if (rooms) liberer_salles(rooms, room_count);
+        return 1;
     }
 
-*/
-
-    creer_salle_objet_personnalisee(&rooms[11], 11, hauteur, largeur, 'I');
-    creer_salle_boss_personnalisee(&rooms[12], 12, hauteur, largeur);
-    creer_salle_objet_personnalisee(&rooms[13], 13, hauteur, largeur, 'H');
-    
-
-    Entity monster_types[10];
-    int num_monster_types = charger_monstres("monstres.mtbob", monster_types, 10);
     bool visitee[14] = {false};
-    visitee[0] = true; // salle spawner déjà visitée
 
-    typedef struct { int x, y; } Coord;
-    Coord pool[29];
-
-    Entity Lenina;
-    Entity jogger;
-
-    jogger.dmg = 1.0f;
-    jogger.hpMax = 5.0f;
-
-    int idx = 0;
-    for (int y = 0; y < 6; ++y) {
-        for (int x = 0; x < 5; ++x) {
-            if (x == 2 && y == 2) continue;
-            pool[idx++] = (Coord){x, y};
-        }
-    }
-
-    srand((unsigned int)time(NULL));
-    for (int i = 28; i > 0; --i) {
-        int j = rand() % (i + 1);
-        Coord tmp = pool[i];
-        pool[i] = pool[j];
-        pool[j] = tmp;
-    }
 
     int layout[6][5];
-    for (int y = 0; y < 6; ++y)
-        for (int x = 0; x < 5; ++x)
-            layout[y][x] = -1;
-
     Coord room_position[14];
-    room_position[0] = (Coord){2, 2};
-    layout[2][2] = 0;
-
-    bool used[6][5] = {0};
-    used[2][2] = true;
-
-    for (int i = 1; i < 14; ++i) {
-        Coord candidates[29];
-        int cand_count = 0;
-
-        for (int j = 0; j < 29; ++j) {
-            int px = pool[j].x;
-            int py = pool[j].y;
-            if (used[py][px]) continue;
-
-            bool has_neighbor = false;
-            if (py > 0 && used[py-1][px]) has_neighbor = true;
-            if (px < 4 && used[py][px+1]) has_neighbor = true;
-            if (py < 5 && used[py+1][px]) has_neighbor = true;
-            if (px > 0 && used[py][px-1]) has_neighbor = true;
-
-            if (has_neighbor) {
-                candidates[cand_count++] = pool[j];
-            }
-        }
-
-        Coord chosen;
-        if (cand_count > 0) {
-            chosen = candidates[rand() % cand_count];
-        } else {
-            Coord freepos[29];
-            int free_count = 0;
-            for (int j = 0; j < 29; ++j) {
-                int px = pool[j].x;
-                int py = pool[j].y;
-                if (!used[py][px]) freepos[free_count++] = pool[j];
-            }
-            if (free_count > 0)
-                chosen = freepos[rand() % free_count];
-            else
-                chosen = (Coord){0,0};
-        }
-
-        room_position[i] = chosen;
-        layout[chosen.y][chosen.x] = i;
-        used[chosen.y][chosen.x] = true;
-    }
-
     int adjacency[14][4];
-    for (int i = 0; i < 14; ++i) {
-        int x = room_position[i].x;
-        int y = room_position[i].y;
-        adjacency[i][0] = (y > 0 && layout[y-1][x] != -1) ? layout[y-1][x] : -1;
-        adjacency[i][1] = (x < 4 && layout[y][x+1] != -1) ? layout[y][x+1] : -1;
-        adjacency[i][2] = (y < 5 && layout[y+1][x] != -1) ? layout[y+1][x] : -1;
-        adjacency[i][3] = (x > 0 && layout[y][x-1] != -1) ? layout[y][x-1] : -1;
-        configurer_portes_salle(&rooms[i],
-                             adjacency[i][0] != -1,
-                             adjacency[i][1] != -1,
-                             adjacency[i][2] != -1,
-                             adjacency[i][3] != -1);
+
+    if (!initialiser_plan_et_portes(rooms, room_count,
+                                    layout, room_position, adjacency, visitee)) {
+        fprintf(stderr, "Erreur : impossible de configurer le plan du sol %d\n", current_floor);
+        liberer_salles(rooms, room_count);
+        return 1;
     }
+
+    initialiser_boss(&rooms[12], current_floor);
 
     int salle_actuelle = 0;
     int joueur_x = largeur / 2;
@@ -539,6 +687,7 @@ int mode_jeu(void)
         }
 
         bool deplace = false;
+        bool boss_item_ramasse = false;
         if (tir && nombre_projectiles < MAX_PROJECTILES)
         {
             // Tir non bloquant : on ajoute le projectile à la liste et on continue
@@ -619,15 +768,8 @@ int mode_jeu(void)
                                     
                                     visitee[salle_actuelle] = true;
                                     int nombre_monstres = rand() % 6 + 1;
-                                    int nombre_types = rand() % 2 + 1;
-                                    int types_selectionnes[2];
-                                    for (int t = 0; t < nombre_types; ++t)
-                                    {
-                                        types_selectionnes[t] = rand() % num_monster_types;
-                                    }
                                     for (int m = 0; m < nombre_monstres; ++m)
                                     {
-                                        int type = types_selectionnes[rand() % nombre_types];
                                         // Trouver une position aléatoire valide
                                         int tentatives = 0;
                                         bool place = false;
@@ -649,6 +791,10 @@ int mode_jeu(void)
                     }
                     else
                     {
+                        if (cible == 'I' && salle_actuelle == 12 && !boss.active)
+                        {
+                            boss_item_ramasse = true;
+                        }
                         rooms[salle_actuelle].grid[joueur_y][joueur_x] = ' ';
                         joueur_x = nx;
                         joueur_y = ny;
@@ -668,6 +814,56 @@ int mode_jeu(void)
         bool monstres_deplaces = mettre_a_jour_monstres(&rooms[salle_actuelle], largeur, hauteur, joueur_x, joueur_y, bouger);
         tick_monstre++;
 
+        if (salle_actuelle == 12)
+        {
+            boss_move(joueur_x, joueur_y, &rooms[salle_actuelle]);
+            boss_shoot(joueur_x, joueur_y, projectiles, &nombre_projectiles);
+        }
+
+        if (boss_item_ramasse)
+        {
+            if (current_floor + 1 < max_floors)
+            {
+                printf("\nBoss tue et I collecte ! Chargement de l'etage %d...\n", current_floor + 2);
+                liberer_salles(rooms, room_count);
+                rooms = NULL;
+                room_count = 0;
+                current_floor++;
+
+                if (!generate_floor(current_floor, NULL, 0, "monstres.mtbob", "items.itbob", &rooms, &room_count) || room_count != 14)
+                {
+                    fprintf(stderr, "Erreur : impossible de generer le sol %d\n", current_floor);
+                    en_jeu = false;
+                    break;
+                }
+
+                if (!initialiser_plan_et_portes(rooms, room_count,
+                                                layout, room_position, adjacency, visitee))
+                {
+                    fprintf(stderr, "Erreur : impossible de configurer le plan du sol %d\n", current_floor);
+                    liberer_salles(rooms, room_count);
+                    en_jeu = false;
+                    break;
+                }
+
+                initialiser_boss(&rooms[12], current_floor);
+
+                salle_actuelle = 0;
+                joueur_x = largeur / 2;
+                joueur_y = hauteur / 2;
+                delai_attaque_monstre = 0;
+                tick_monstre = 0;
+                nombre_projectiles = 0;
+                besoin_rendu = true;
+                continue;
+            }
+            else
+            {
+                printf("\nFelicitation ! Vous avez termine tous les etages.\n");
+                en_jeu = false;
+            }
+        }
+
         if (pv_joueur <= 0)
         {
             en_jeu = false;
@@ -683,6 +879,7 @@ int mode_jeu(void)
         if (besoin_rendu)
         {
             system("cls");
+            printf("Etage : %d / %d\n", current_floor + 1, max_floors);
             printf("Salle actuelle : %d / 13\n", salle_actuelle);
             printf("HP joueur : %d\n", pv_joueur);
             rendre_salle(&rooms[salle_actuelle], largeur, hauteur, projectiles, nombre_projectiles);
@@ -695,7 +892,7 @@ int mode_jeu(void)
         Sleep(100); // ~10 FPS
     }
 
-    for (int i = 0; i < 14; ++i) freeR(&rooms[i]);
+    liberer_salles(rooms, room_count);
 
     printf("Fin du jeu.\n");
     return 0;
