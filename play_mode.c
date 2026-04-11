@@ -148,6 +148,23 @@ static bool boss_hit(Room *room, int x, int y, int damage)
     return true;
 }
 
+static int compter_monstres_dans_salle(const Room *room)
+{
+    int count = 0;
+    for (int y = 0; y < room->height; ++y)
+    {
+        for (int x = 0; x < room->width; ++x)
+        {
+            char c = room->grid[y][x];
+            if (c == 'M' || c == 'N' || c == 'C' || c == 'c' || c == 'm')
+            {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
 static bool add_projectile(Projectile projectiles[], int *nombre_projectiles, int x, int y, int dx, int dy)
 {
     if (*nombre_projectiles >= MAX_PROJECTILES)
@@ -293,12 +310,16 @@ static bool mettre_a_jour_projectiles(Room *room, int largeur, int hauteur, Proj
         {
             if (cible == 'R')
             {
-                room->grid[ny][nx] = ' ';
-                printf("Projectile a detruit un rocher en (%d,%d).\n", nx, ny);
+                printf("Projectile a frappe un rocher en (%d,%d).\n", nx, ny);
             }
-            else if (cible == 'W' || cible == 'D')
+            else if (cible == 'W' || cible == 'D' || cible == 'G' || cible == 'S' || cible == 'H' || cible == 'I')
             {
                 printf("Projectile a frappe un obstacle '%c' en (%d,%d).\n", cible, nx, ny);
+            }
+            else if (cible == 'M')
+            {
+                printf("Projectile a tue un monstre en (%d,%d).\n", nx, ny);
+                room->grid[ny][nx] = ' ';
             }
             else if (cible == 'B')
             {
@@ -309,8 +330,7 @@ static bool mettre_a_jour_projectiles(Room *room, int largeur, int hauteur, Proj
             }
             else
             {
-                printf("Projectile a touche '%c' en (%d,%d).\n", cible, nx, ny);
-                room->grid[ny][nx] = ' ';
+                printf("Projectile a frappe '%c' en (%d,%d).\n", cible, nx, ny);
             }
             projectiles[p].active = false; // impact et fin du projectile
             continue;
@@ -765,24 +785,31 @@ int mode_jeu(void)
                                 // Spawn de monstres si première visite d'une salle normale
                                 if (!visitee[salle_actuelle] && salle_actuelle >= 1 && salle_actuelle <= 10)
                                 {
-                                    
                                     visitee[salle_actuelle] = true;
-                                    int nombre_monstres = rand() % 6 + 1;
-                                    for (int m = 0; m < nombre_monstres; ++m)
+                                    int deja = compter_monstres_dans_salle(&rooms[salle_actuelle]);
+                                    int max_add = 6 - deja;
+                                    if (max_add > 0)
                                     {
-                                        // Trouver une position aléatoire valide
-                                        int tentatives = 0;
-                                        bool place = false;
-                                        while (tentatives < 100 && !place)
+                                        int nombre_monstres = rand() % max_add + 1;
+                                        int nombre_types = rand() % 2 + 1;
+                                        char type_markers[2] = { 'M', 'N' };
+
+                                        for (int m = 0; m < nombre_monstres; ++m)
                                         {
-                                            int x = rand() % largeur;
-                                            int y = rand() % hauteur;
-                                            if (rooms[salle_actuelle].grid[y][x] == ' ')
+                                            // Trouver une position aléatoire valide
+                                            int tentatives = 0;
+                                            bool place = false;
+                                            while (tentatives < 100 && !place)
                                             {
-                                                rooms[salle_actuelle].grid[y][x] = 'M';
-                                                place = true;
+                                                int x = rand() % largeur;
+                                                int y = rand() % hauteur;
+                                                if (rooms[salle_actuelle].grid[y][x] == ' ')
+                                                {
+                                                    rooms[salle_actuelle].grid[y][x] = type_markers[rand() % nombre_types];
+                                                    place = true;
+                                                }
+                                                tentatives++;
                                             }
-                                            tentatives++;
                                         }
                                     }
                                 }
