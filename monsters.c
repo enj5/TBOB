@@ -210,15 +210,15 @@ bool load_entities_from_file(const char *filename, Entity **outEntities, size_t 
         }
         else if (strcmp(key, "shoot") == 0)
         {
-            current.shoot = (bool)atoi(value);
+            current.shoot = (strcasecmp(value, "true") == 0 || strcmp(value, "1") == 0);
         }
         else if (strcmp(key, "ss") == 0)
         {
-            current.ss = (bool)atoi(value);
+            current.ss = (strcasecmp(value, "true") == 0 || strcmp(value, "1") == 0);
         }
         else if (strcmp(key, "flight") == 0)
         {
-            current.flight = (bool)atoi(value);
+            current.flight = (strcasecmp(value, "true") == 0 || strcmp(value, "1") == 0);
         }
     }
 

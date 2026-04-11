@@ -305,24 +305,25 @@ static void create_item_room(Room *room, int id, char item_code) {
 }
 
 /// Add monsters to a room
-/// Randomly selects 0-6 monsters, at most 2 types
-/// 10% chance for each monster to be a champion (2x HP and 2x DMG)
+/// Randomly selects 0-6 monsters, at most 2 types.
+/// Uses lowercase letters to encode the type index in the room grid.
 static void add_monsters_to_room(Room *room, int count,
                                  const Entity *monsters, size_t monster_count,
                                  int floor_num) {
-    (void) monsters;
     (void) floor_num;
 
-    if (monster_count == 0 || count == 0)
+    if (!room || !monsters || monster_count == 0 || count <= 0)
         return;
 
-    // Pick up to 2 different monster types
     int type1 = rand() % monster_count;
     int type2 = type1;
     if (monster_count > 1 && rand() % 100 < 50) {
-        type2 = rand() % monster_count;
+        do {
+            type2 = rand() % monster_count;
+        } while (type2 == type1);
     }
 
+    int selected_types[2] = { type1, type2 };
     int added = 0;
     int max_attempts = 50;
     int attempts = 0;
@@ -330,32 +331,16 @@ static void add_monsters_to_room(Room *room, int count,
     while (added < count && attempts < max_attempts) {
         attempts++;
 
-        // Random position in room (avoid walls and doors)
         int x = 1 + rand() % (room->width - 2);
         int y = 1 + rand() % (room->height - 2);
-
-        // Check if position is free
-        if (room->grid[y][x] == ' ') {
-            // Decide which monster type
-            int type = (rand() % 100 < 50) ? type1 : type2;
-            
-            // 10% chance for champion
-            bool is_champion = rand() % 100 < 10;
-            
-            // Mark position with character indicating monster type and champion status
-            // C or M for type1, c or m for type2
-            char marker;
-            if (type == type1)
-                marker = is_champion ? 'C' : 'M';
-            else
-                marker = is_champion ? 'c' : 'm';
-
-            room->grid[y][x] = marker;
-            
-            // In a real implementation, you'd store the actual monster entity data
-            // For now, we're just marking the position
-            added++;
+        if (room->grid[y][x] != ' ') {
+            continue;
         }
+
+        int chosen = selected_types[rand() % 2];
+        char marker = (char)('a' + (chosen % 26));
+        room->grid[y][x] = marker;
+        added++;
     }
 }
 

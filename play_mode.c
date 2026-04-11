@@ -2,11 +2,13 @@
 #include "crud1_salle.h"
 #include "salle.h"
 #include "rooms.h"
+#include "monsters.h"
 #include "structs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
 #include <time.h>
 #include <conio.h>
 #include <windows.h>
@@ -35,29 +37,25 @@ typedef struct {
 
 typedef struct {
     bool active;
-    int hp;
+    float hp;
+    float dmg;
+    int type_index;
+    char marker;
+    bool shoot;
+    bool ss;
+    bool flight;
 } MonsterCell;
 
 static Boss boss;
 static MonsterCell monster_grid[14][20][20];
+static Entity *monster_types = NULL;
+static size_t monster_type_count = 0;
 
 static int signe_entier(int value);
 
 static bool is_monster_char(char c)
 {
-    return c == 'M' || c == 'N' || c == 'C' || c == 'c' || c == 'm';
-}
-
-static int hp_for_monster_char(char c)
-{
-    switch (c) {
-        case 'M': return 20;
-        case 'N': return 30;
-        case 'C': return 25;
-        case 'c': return 15;
-        case 'm': return 15;
-        default: return 20;
-    }
+    return c >= 'a' && c <= 'z';
 }
 
 static void clear_monster_grid(void)
@@ -66,23 +64,63 @@ static void clear_monster_grid(void)
         for (int y = 0; y < 20; ++y) {
             for (int x = 0; x < 20; ++x) {
                 monster_grid[r][y][x].active = false;
-                monster_grid[r][y][x].hp = 0;
+                monster_grid[r][y][x].hp = 0.0f;
+                monster_grid[r][y][x].dmg = 0.0f;
+                monster_grid[r][y][x].type_index = -1;
+                monster_grid[r][y][x].marker = '\0';
+                monster_grid[r][y][x].shoot = false;
+                monster_grid[r][y][x].ss = false;
+                monster_grid[r][y][x].flight = false;
             }
         }
     }
 }
 
+static bool load_monster_types(const char *filename)
+{
+    if (!load_entities_from_file(filename, &monster_types, &monster_type_count)) {
+        return false;
+    }
+    return true;
+}
+
+static void free_monster_types(void)
+{
+    free_entities(monster_types);
+    monster_types = NULL;
+    monster_type_count = 0;
+}
+
 static void initialize_monster_grid(Room *rooms, size_t room_count)
 {
     clear_monster_grid();
-    for (size_t r = 0; r < room_count && r < 14; ++r) {
-        for (int y = 0; y < rooms[r].height; ++y) {
-            for (int x = 0; x < rooms[r].width; ++x) {
-                char c = rooms[r].grid[y][x];
-                if (is_monster_char(c)) {
-                    monster_grid[r][y][x].active = true;
-                    monster_grid[r][y][x].hp = hp_for_monster_char(c);
+    if (!rooms || !monster_types) {
+        return;
+    }
+
+    for (int r = 0; r < (int)room_count; ++r) {
+        Room *room = &rooms[r];
+        for (int y = 0; y < room->height; ++y) {
+            for (int x = 0; x < room->width; ++x) {
+                char c = room->grid[y][x];
+                if (!is_monster_char(c)) {
+                    continue;
                 }
+
+                int type_index = c - 'a';
+                if (type_index < 0 || type_index >= (int)monster_type_count) {
+                    room->grid[y][x] = ' ';
+                    continue;
+                }
+
+                monster_grid[r][y][x].active = true;
+                monster_grid[r][y][x].hp = monster_types[type_index].hpMax;
+                monster_grid[r][y][x].dmg = monster_types[type_index].dmg;
+                monster_grid[r][y][x].type_index = type_index;
+                monster_grid[r][y][x].marker = c;
+                monster_grid[r][y][x].shoot = monster_types[type_index].shoot;
+                monster_grid[r][y][x].ss = monster_types[type_index].ss;
+                monster_grid[r][y][x].flight = monster_types[type_index].flight;
             }
         }
     }
@@ -98,20 +136,7 @@ static void move_monster_cell(int room_index, int old_x, int old_y, int new_x, i
 static void defeat_monster_at(int room_index, int x, int y)
 {
     monster_grid[room_index][y][x].active = false;
-    monster_grid[room_index][y][x].hp = 0;
-}
-
-static int count_monsters_in_room(const Room *room, int room_index)
-{
-    int count = 0;
-    for (int y = 0; y < room->height; ++y) {
-        for (int x = 0; x < room->width; ++x) {
-            if (monster_grid[room_index][y][x].active) {
-                count++;
-            }
-        }
-    }
-    return count;
+    monster_grid[room_index][y][x].hp = 0.0f;
 }
 
 #define MAX_PROJECTILES 10
@@ -390,7 +415,7 @@ static bool mettre_a_jour_projectiles(Room *room, int room_index, int largeur, i
                     }
                     else
                     {
-                        printf("Projectile a blesse un monstre en (%d,%d) (%d HP restants).\n", nx, ny, cell->hp);
+                        printf("Projectile a blesse un monstre en (%d,%d) (%.0f HP restants).\n", nx, ny, cell->hp);
                     }
                 }
                 else
@@ -685,14 +710,21 @@ int mode_jeu(void)
     int current_floor = 0;
     const int max_floors = 3;
 
+    if (!load_monster_types("monstres.mtbob")) {
+        fprintf(stderr, "Erreur : impossible de charger les definitions de monstres\n");
+        return 1;
+    }
+
     if (!generate_floor(current_floor, NULL, 0, "monstres.mtbob", "items.itbob", &rooms, &room_count)) {
         fprintf(stderr, "Erreur : impossible de generer le sol %d\n", current_floor);
+        free_monster_types();
         return 1;
     }
     initialize_monster_grid(rooms, room_count);
     if (room_count != 14) {
         fprintf(stderr, "Erreur : nombre de salles generees incorrect (%zu)\n", room_count);
         if (rooms) liberer_salles(rooms, room_count);
+        free_monster_types();
         return 1;
     }
 
@@ -861,39 +893,6 @@ int mode_jeu(void)
                                 }
                                 rooms[salle_actuelle].grid[joueur_y][joueur_x] = 'P';
                                 deplace = true;
-                                // Spawn de monstres si première visite d'une salle normale
-                                if (!visitee[salle_actuelle] && salle_actuelle >= 1 && salle_actuelle <= 10)
-                                {
-                                    visitee[salle_actuelle] = true;
-                                    int deja = count_monsters_in_room(&rooms[salle_actuelle], salle_actuelle);
-                                    int max_add = 6 - deja;
-                                    if (max_add > 0)
-                                    {
-                                        int nombre_monstres = rand() % max_add + 1;
-                                        int nombre_types = rand() % 2 + 1;
-                                        char type_markers[2] = { 'M', 'N' };
-
-                                        for (int m = 0; m < nombre_monstres; ++m)
-                                        {
-                                            int tentatives = 0;
-                                            bool place = false;
-                                            while (tentatives < 100 && !place)
-                                            {
-                                                int x = rand() % largeur;
-                                                int y = rand() % hauteur;
-                                                if (rooms[salle_actuelle].grid[y][x] == ' ')
-                                                {
-                                                    char marker = type_markers[rand() % nombre_types];
-                                                    rooms[salle_actuelle].grid[y][x] = marker;
-                                                    monster_grid[salle_actuelle][y][x].active = true;
-                                                    monster_grid[salle_actuelle][y][x].hp = hp_for_monster_char(marker);
-                                                    place = true;
-                                                }
-                                                tentatives++;
-                                            }
-                                        }
-                                    }
-                                }
                             }
                         }
                     }
@@ -1002,6 +1001,7 @@ int mode_jeu(void)
     }
 
     liberer_salles(rooms, room_count);
+    free_monster_types();
 
     printf("Fin du jeu.\n");
     return 0;
